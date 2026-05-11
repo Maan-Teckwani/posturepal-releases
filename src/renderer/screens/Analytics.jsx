@@ -1,0 +1,356 @@
+import React, { useState, useEffect, useRef } from 'react';
+
+const LEVEL_TITLES = [
+  "Shrimp 🦐", "Minnow 🐟", "Salmon 🐠", "Dolphin 🐬", "Shark 🦈",
+  "Whale 🐋", "Posture Ninja 🥷", "Spine God 🧘", "Ergonomic Legend 🏆", "PosturePal Master 👑"
+];
+const XP_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 3500, 6000, 10000, 15000];
+
+const Analytics = () => {
+  const [tab, setTab] = useState('today'); // today, week, month
+  const [sessions, setSessions] = useState([]);
+  const [xpData, setXpData] = useState({ total: 0, level: 1 });
+  const chartRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (window.api) {
+        const s = await window.api.getSessions();
+        setSessions(s || []);
+        const xp = await window.api.getXP();
+        setXpData(xp || { total: 0, level: 1 });
+      }
+    };
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    
+    if (chartRef.current) {
+      chartRef.current.destroy();
+      chartRef.current = null;
+    }
+
+    if (sessions.length === 0) return;
+
+    const ctx = canvasRef.current.getContext('2d');
+    const now = new Date();
+    
+    if (tab === 'today') {
+      const todaySessions = sessions.filter(s => {
+        const d = new Date(s.startTime);
+        return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+
+      let hourlyData = new Array(24).fill(0);
+      let hourlyCounts = new Array(24).fill(0);
+
+      todaySessions.forEach(session => {
+        session.scores.forEach(pt => {
+          const hr = new Date(pt.timestamp).getHours();
+          hourlyData[hr] += pt.score;
+          hourlyCounts[hr] += 1;
+        });
+      });
+
+      const labels = Array.from({length: 24}, (_, i) => `${i}:00`);
+      const data = hourlyData.map((sum, i) => hourlyCounts[i] > 0 ? Math.round(sum / hourlyCounts[i]) : null);
+
+      chartRef.current = new window.Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Avg Score',
+            data,
+            borderColor: '#4caf50',
+            tension: 0.3,
+            spanGaps: true
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: { y: { min: 0, max: 100 } }
+        }
+      });
+    } else if (tab === 'week') {
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const weekSessions = sessions.filter(s => new Date(s.startTime) > weekAgo);
+      
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      let dailyScores = {};
+      
+      for(let i=6; i>=0; i--) {
+        const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        dailyScores[d.toDateString()] = { sum: 0, count: 0, label: days[d.getDay()] };
+      }
+
+      weekSessions.forEach(session => {
+        const dStr = new Date(session.startTime).toDateString();
+        if (dailyScores[dStr]) {
+          session.scores.forEach(pt => {
+            dailyScores[dStr].sum += pt.score;
+            dailyScores[dStr].count += 1;
+          });
+        }
+      });
+
+      const labels = Object.values(dailyScores).map(d => d.label);
+      const data = Object.values(dailyScores).map(d => d.count > 0 ? Math.round(d.sum / d.count) : 0);
+      const colors = data.map(score => score >= 70 ? '#4caf50' : score >= 40 ? '#ff9800' : '#f44336');
+
+      chartRef.current = new window.Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Daily Avg',
+            data,
+            backgroundColor: colors
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: { y: { min: 0, max: 100 } }
+        }
+      });
+    }
+
+  }, [tab, sessions]);
+
+  const renderTodayStats = () => {
+    const now = new Date();
+    const todaySessions = sessions.filter(s => {
+      const d = new Date(s.startTime);
+      return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+
+    let goodSecs = 0;
+    let alerts = 0;
+    let totalScore = 0;
+    let scoreCount = 0;
+
+    todaySessions.forEach(s => {
+      goodSecs += s.goodSeconds;
+      alerts += s.alertsFired;
+      s.scores.forEach(pt => {
+        totalScore += pt.score;
+        scoreCount += 1;
+      });
+    });
+
+    const avg = scoreCount > 0 ? Math.round(totalScore / scoreCount) : 0;
+    const hrs = Math.floor(goodSecs / 3600);
+    const mins = Math.floor((goodSecs % 3600) / 60);
+
+    return (
+      <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
+        <div style={cardStyle}>
+          <div style={cardTitle}>Good posture</div>
+          <div style={cardVal}>{hrs}h {mins}m</div>
+        </div>
+        <div style={cardStyle}>
+          <div style={cardTitle}>Alerts today</div>
+          <div style={cardVal}>{alerts}</div>
+        </div>
+        <div style={cardStyle}>
+          <div style={cardTitle}>Avg score</div>
+          <div style={{ ...cardVal, color: avg >= 70 ? '#4caf50' : '#f44336' }}>{avg}</div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderWeekStats = () => {
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const weekSessions = sessions.filter(s => new Date(s.startTime) > weekAgo);
+    
+    let dailyAverages = {};
+    weekSessions.forEach(s => {
+      const dStr = new Date(s.startTime).toDateString();
+      if (!dailyAverages[dStr]) dailyAverages[dStr] = { sum: 0, count: 0 };
+      s.scores.forEach(pt => {
+        dailyAverages[dStr].sum += pt.score;
+        dailyAverages[dStr].count += 1;
+      });
+    });
+
+    let max = 0;
+    let min = 100;
+    let totalSum = 0;
+    let totalCount = 0;
+
+    Object.values(dailyAverages).forEach(d => {
+      if (d.count > 0) {
+        const avg = Math.round(d.sum / d.count);
+        if (avg > max) max = avg;
+        if (avg < min) min = avg;
+        totalSum += d.sum;
+        totalCount += d.count;
+      }
+    });
+    if (min === 100 && totalCount === 0) min = 0;
+
+    const weeklyAvg = totalCount > 0 ? Math.round(totalSum / totalCount) : 0;
+
+    return (
+      <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
+        <div style={cardStyle}>
+          <div style={cardTitle}>Best day</div>
+          <div style={cardVal}>{max}</div>
+        </div>
+        <div style={cardStyle}>
+          <div style={cardTitle}>Worst day</div>
+          <div style={cardVal}>{min}</div>
+        </div>
+        <div style={cardStyle}>
+          <div style={cardTitle}>Weekly avg</div>
+          <div style={cardVal}>{weeklyAvg}</div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMonthStats = () => {
+    const now = new Date();
+    const monthSessions = sessions.filter(s => {
+      const d = new Date(s.startTime);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+    let daysTracked = new Set();
+    monthSessions.forEach(s => daysTracked.add(new Date(s.startTime).getDate()));
+
+    return (
+      <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
+        <div style={cardStyle}>
+          <div style={cardTitle}>Days tracked this month</div>
+          <div style={cardVal}>{daysTracked.size}</div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMonthCalendar = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    let dailyData = {};
+    const monthSessions = sessions.filter(s => {
+      const d = new Date(s.startTime);
+      return d.getMonth() === month && d.getFullYear() === year;
+    });
+
+    monthSessions.forEach(s => {
+      const date = new Date(s.startTime).getDate();
+      if (!dailyData[date]) dailyData[date] = { sum: 0, count: 0, goodSecs: 0 };
+      dailyData[date].goodSecs += s.goodSeconds;
+      s.scores.forEach(pt => {
+        dailyData[date].sum += pt.score;
+        dailyData[date].count += 1;
+      });
+    });
+
+    const cells = [];
+    for (let i = 0; i < firstDay; i++) {
+      cells.push(<div key={`empty-${i}`} style={calCellEmpty}></div>);
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      const d = dailyData[i];
+      let bg = '#333';
+      let title = `Day ${i}: No data`;
+      if (d && d.count > 0) {
+        const avg = Math.round(d.sum / d.count);
+        bg = avg >= 70 ? '#4caf50' : avg >= 40 ? '#ff9800' : '#f44336';
+        title = `Day ${i}: Avg ${avg}, ${Math.floor(d.goodSecs/60)}m good posture`;
+      }
+      cells.push(
+        <div key={i} title={title} style={{...calCell, backgroundColor: bg}}>
+          {i}
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '5px', marginBottom: '20px' }}>
+        {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => <div key={d} style={calHeader}>{d}</div>)}
+        {cells}
+      </div>
+    );
+  };
+
+  const levelIndex = Math.max(0, Math.min(xpData.level - 1, LEVEL_TITLES.length - 1));
+  const currentTitle = LEVEL_TITLES[levelIndex];
+  const nextThreshold = XP_THRESHOLDS[levelIndex + 1] || XP_THRESHOLDS[XP_THRESHOLDS.length - 1];
+
+  return (
+    <div style={{ padding: '30px', color: 'white', maxWidth: '800px', margin: '0 auto', height: '100%', overflowY: 'auto' }}>
+      <h2 style={{ color: '#61dafb', marginBottom: '20px' }}>Analytics</h2>
+      
+      {sessions.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '50px', backgroundColor: '#1a1a1a', borderRadius: '12px' }}>
+          <h3>No data yet.</h3>
+          <p>Start a session to see your analytics!</p>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            <button onClick={() => setTab('today')} style={tab === 'today' ? activeTabBtn : tabBtn}>Today</button>
+            <button onClick={() => setTab('week')} style={tab === 'week' ? activeTabBtn : tabBtn}>Week</button>
+            <button onClick={() => setTab('month')} style={tab === 'month' ? activeTabBtn : tabBtn}>Month</button>
+          </div>
+
+          {tab === 'today' && renderTodayStats()}
+          {tab === 'week' && renderWeekStats()}
+          {tab === 'month' && renderMonthStats()}
+
+          {tab !== 'month' && (
+            <div style={{ backgroundColor: '#1a1a1a', padding: '20px', borderRadius: '12px', height: '300px', marginBottom: '30px' }}>
+              <canvas ref={canvasRef}></canvas>
+            </div>
+          )}
+
+          {tab === 'month' && (
+            <div style={{ backgroundColor: '#1a1a1a', padding: '20px', borderRadius: '12px', marginBottom: '30px' }}>
+              {renderMonthCalendar()}
+            </div>
+          )}
+        </>
+      )}
+
+      <h3 style={{ color: '#61dafb', borderTop: '1px solid #333', paddingTop: '20px', marginTop: '20px' }}>Your Progress</h3>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', backgroundColor: '#1a1a1a', padding: '20px', borderRadius: '12px' }}>
+        <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#4caf50', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', fontWeight: 'bold' }}>
+          <span style={{ fontSize: '12px' }}>LVL</span>
+          <span style={{ fontSize: '32px' }}>{xpData.level}</span>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '10px' }}>{currentTitle}</div>
+          <div style={{ width: '100%', height: '10px', backgroundColor: '#333', borderRadius: '5px', overflow: 'hidden' }}>
+            <div style={{ width: `${Math.min(100, (xpData.total / nextThreshold) * 100)}%`, height: '100%', backgroundColor: '#2196f3' }}></div>
+          </div>
+          <div style={{ fontSize: '12px', color: '#aaa', marginTop: '5px' }}>
+            {xpData.total} / {nextThreshold} XP to Level {xpData.level + 1}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Styles
+const tabBtn = { padding: '8px 16px', backgroundColor: '#333', color: 'white', border: 'none', borderRadius: '20px', cursor: 'pointer' };
+const activeTabBtn = { ...tabBtn, backgroundColor: '#2196f3' };
+const cardStyle = { flex: 1, backgroundColor: '#1a1a1a', padding: '15px', borderRadius: '12px', textAlign: 'center' };
+const cardTitle = { fontSize: '14px', color: '#aaa', marginBottom: '5px' };
+const cardVal = { fontSize: '24px', fontWeight: 'bold' };
+const calHeader = { textAlign: 'center', fontSize: '12px', color: '#aaa', paddingBottom: '10px' };
+const calCell = { aspectRatio: '1', display: 'flex', justifyContent: 'center', alignItems: 'center', borderRadius: '4px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer' };
+const calCellEmpty = { ...calCell, backgroundColor: 'transparent' };
+
+export default Analytics;
