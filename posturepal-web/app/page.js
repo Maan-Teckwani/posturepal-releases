@@ -1,6 +1,8 @@
-"use client";
+'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+const STRIPE_LINK = process.env.NEXT_PUBLIC_STRIPE_LINK || '#';
 
 export default function Home() {
   const [openFaq, setOpenFaq] = useState(null);
@@ -9,222 +11,280 @@ export default function Home() {
     setOpenFaq(openFaq === index ? null : index);
   };
 
-  const paymentLink = "https://rzp.io/l/your_payment_link_placeholder";
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.style.opacity = '1';
+            entry.target.style.transform = 'translateY(0)';
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    document.querySelectorAll('.scroll-fade').forEach(el => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(24px)';
+      el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+      observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <div className="min-h-screen">
-      {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-white border-b-2 border-black flex justify-between items-center px-6 py-4">
-        <div className="font-bold text-xl">PosturePal 🦐</div>
-        <div className="hidden md:flex gap-8 font-medium">
-          <a href="#benefits" className="hover:underline underline-offset-4">Benefits</a>
-          <a href="#how-it-works" className="hover:underline underline-offset-4">How it works</a>
-          <a href="#pricing" className="hover:underline underline-offset-4">Pricing</a>
-          <a href="#faq" className="hover:underline underline-offset-4">FAQ</a>
+    <>
+      {/* NAVBAR */}
+      <nav style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        background: 'var(--white)',
+        borderBottom: '2px solid var(--black)',
+        height: '64px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '0 24px'
+      }}>
+        <div style={{ maxWidth: 'var(--max-width)', margin: '0 auto', width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontWeight: 700, fontSize: '18px' }}>PosturePal 🦐</div>
+          <div className="nav-links" style={{ display: 'flex', gap: '32px', fontSize: '14px', fontWeight: 500 }}>
+            <a href="#benefits" style={{ textDecoration: 'none', color: 'var(--black)' }}>Benefits</a>
+            <a href="#how-it-works" style={{ textDecoration: 'none', color: 'var(--black)' }}>How it works</a>
+            <a href="#pricing" style={{ textDecoration: 'none', color: 'var(--black)' }}>Pricing</a>
+            <a href="#faq" style={{ textDecoration: 'none', color: 'var(--black)' }}>FAQ</a>
+          </div>
+          <a href={STRIPE_LINK} className="neo-btn" style={{ fontSize: '13px', padding: '10px 20px' }}>
+            Get PosturePal — $17
+          </a>
         </div>
-        <a href={paymentLink} className="neo-btn" style={{ padding: '8px 16px', fontSize: '14px' }}>
-          Get PosturePal — $17
-        </a>
       </nav>
 
-      {/* Hero Section */}
-      <section className="min-h-[90vh] flex flex-col md:flex-row items-center justify-center px-6 py-12 max-w-7xl mx-auto gap-12">
-        <div className="flex-1 space-y-6">
-          <div className="neo-tag">AI-POWERED POSTURE COACH</div>
-          <h1 style={{ fontSize: '72px', lineHeight: 1.1 }}>Stop sitting like a shrimp.</h1>
-          <p className="text-xl text-gray-700 max-w-lg">
-            PosturePal watches your posture while you work. Get a popup the moment you slouch. Fix it in seconds — without leaving your desk.
-          </p>
-          <div className="flex flex-wrap gap-4 pt-4">
-            <a href={paymentLink} className="neo-btn">Get PosturePal — $17</a>
-            <a href="#how-it-works" className="neo-btn neo-btn-outline" style={{ background: 'transparent', color: 'var(--black)' }}>See how it works ↓</a>
-          </div>
-          <div className="pt-2 text-sm font-medium text-gray-600">
-            ✓ One-time payment &nbsp;&nbsp; ✓ Mac, Windows & Linux &nbsp;&nbsp; ✓ Works offline
-          </div>
-        </div>
-        <div className="flex-1 w-full flex justify-center md:justify-end">
-          <div className="neo-card w-full max-w-md aspect-[4/3] flex items-center justify-center bg-white">
-            <span className="text-[120px]">🖥️</span>
-          </div>
-        </div>
-      </section>
-
-      {/* Problem Section */}
-      <section id="benefits" className="bg-white py-24 px-6 border-y-2 border-black">
-        <div className="max-w-7xl mx-auto">
-          <div className="neo-tag mb-6">THE PROBLEM</div>
-          <h2 style={{ fontSize: '56px', marginBottom: '48px' }}>Bad posture is silently wrecking you.</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="neo-card p-8">
-              <div className="text-4xl mb-4">🤕</div>
-              <h3 className="text-2xl font-bold mb-3 font-sans">Neck and back pain</h3>
-              <p>Hours of forward head posture adds up to chronic pain by your 30s.</p>
+      {/* HERO SECTION */}
+      <section className="bg-cream" style={{ padding: '80px 0 0 0', minHeight: '90vh', display: 'flex', alignItems: 'center' }}>
+        <div className="container" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
+          <div style={{ flex: '1 1 55%', paddingRight: '60px', minWidth: '300px' }}>
+            <div className="neo-tag fade-up">AI-POWERED POSTURE COACH</div>
+            <h1 className="fade-up fade-up-delay-1" style={{ fontSize: '72px', margin: '20px 0' }}>Stop sitting like a shrimp.</h1>
+            <p className="fade-up fade-up-delay-2" style={{ fontSize: '18px', color: 'var(--muted)', maxWidth: '480px' }}>
+              PosturePal watches your posture while you work. Get a popup the moment you slouch. Fix it in seconds — without leaving your desk.
+            </p>
+            <div className="hero-buttons fade-up fade-up-delay-3" style={{ display: 'flex', gap: '16px', marginTop: '32px', flexWrap: 'wrap' }}>
+              <a href={STRIPE_LINK} className="neo-btn">Get PosturePal — $17</a>
+              <a href="#how-it-works" className="neo-btn outline">See how it works ↓</a>
             </div>
-            <div className="neo-card p-8">
-              <div className="text-4xl mb-4">😴</div>
-              <h3 className="text-2xl font-bold mb-3 font-sans">Lower energy</h3>
-              <p>Slouching compresses your lungs, reduces oxygen, kills your focus.</p>
-            </div>
-            <div className="neo-card p-8">
-              <div className="text-4xl mb-4">💸</div>
-              <h3 className="text-2xl font-bold mb-3 font-sans">Doctor bills</h3>
-              <p>The average physio visit costs more than PosturePal. Forever.</p>
+            <div className="fade-up fade-up-delay-4" style={{ marginTop: '20px', display: 'flex', gap: '20px', fontSize: '13px', color: 'var(--muted)', flexWrap: 'wrap' }}>
+              <span>✓ One-time payment</span>
+              <span>✓ Mac, Windows & Linux</span>
+              <span>✓ Works offline</span>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section id="how-it-works" className="py-24 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="neo-tag mb-6">HOW IT WORKS</div>
-          <h2 style={{ fontSize: '56px', marginBottom: '48px' }}>Three steps. Five seconds to set up.</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="neo-card p-8 relative overflow-hidden">
-              <div className="absolute -top-4 -right-4 text-[120px] font-serif text-gray-100 leading-none z-0">01</div>
-              <div className="relative z-10">
-                <h3 className="text-2xl font-bold mb-3 font-sans mt-8">Open & Calibrate</h3>
-                <p>Sit up straight and click Calibrate. PosturePal memorizes your perfect posture in 3 seconds.</p>
+          
+          <div style={{ flex: '1 1 45%', minWidth: '300px', display: 'flex', justifyContent: 'center', marginTop: '40px' }}>
+            <div className="neo-card" style={{ width: '100%', aspectRatio: '4/3', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'float 4s ease-in-out infinite', padding: 0, overflow: 'hidden', flexDirection: 'column' }}>
+              <div style={{ width: '100%', padding: '10px 16px', background: '#e0e0e0', borderBottom: '2px solid var(--black)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f56', border: '1px solid #e0443e' }}></div>
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ffbd2e', border: '1px solid #dea123' }}></div>
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#27c93f', border: '1px solid #1aab29' }}></div>
+                <div style={{ flex: 1, textAlign: 'center', fontSize: '12px', fontWeight: 600, fontFamily: 'sans-serif' }}>PosturePal</div>
               </div>
-            </div>
-            <div className="neo-card p-8 relative overflow-hidden">
-              <div className="absolute -top-4 -right-4 text-[120px] font-serif text-gray-100 leading-none z-0">02</div>
-              <div className="relative z-10">
-                <h3 className="text-2xl font-bold mb-3 font-sans mt-8">Close the app</h3>
-                <p>PosturePal hides to your system tray and watches silently while you work, code, or browse.</p>
-              </div>
-            </div>
-            <div className="neo-card p-8 relative overflow-hidden">
-              <div className="absolute -top-4 -right-4 text-[120px] font-serif text-gray-100 leading-none z-0">03</div>
-              <div className="relative z-10">
-                <h3 className="text-2xl font-bold mb-3 font-sans mt-8">Get nudged</h3>
-                <p>The moment you slouch for 3 seconds, a popup appears. See yourself. Fix it. It disappears.</p>
+              <div style={{ width: '100%', flex: 1, background: '#1a1a1a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}>
+                <div style={{ fontSize: '48px', fontWeight: 'bold', fontFamily: 'monospace', letterSpacing: '2px', textShadow: '0 0 10px rgba(212, 245, 122, 0.5)' }}>SCORE: 87</div>
+                <div style={{ display: 'flex', gap: '16px', marginTop: '20px', fontSize: '14px', fontWeight: 600 }}>
+                  <span>✓ Head</span>
+                  <span>✓ Shoulders</span>
+                  <span>✓ Distance</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features */}
-      <section className="bg-white py-24 px-6 border-y-2 border-black">
-        <div className="max-w-7xl mx-auto">
-          <div className="neo-tag mb-6">FEATURES</div>
-          <h2 style={{ fontSize: '56px', marginBottom: '48px' }}>Everything you need, nothing you don't.</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="neo-card p-6 flex gap-4">
-              <div className="text-2xl">🎯</div>
-              <div>
-                <h3 className="font-bold mb-1 font-sans">Calibrated to YOU</h3>
-                <p className="text-sm">Set your baseline once. Scoring is relative to your perfect posture, not a generic model.</p>
-              </div>
+      {/* TICKER / MARQUEE STRIP */}
+      <div style={{ background: 'var(--black)', color: 'var(--white)', padding: '14px 0', borderTop: '2px solid var(--black)', borderBottom: '2px solid var(--black)', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', width: 'fit-content', animation: 'marquee 20s linear infinite' }}>
+          {[1, 2].map(i => (
+            <div key={i} style={{ display: 'flex', gap: '40px', paddingRight: '40px', fontSize: '13px', fontWeight: 600, letterSpacing: '0.05em' }}>
+              <span>✦ WORKS WHILE YOU CODE</span>
+              <span>✦ FULLY OFFLINE</span>
+              <span>✦ 3-SECOND ALERTS</span>
+              <span>✦ CALIBRATED TO YOU</span>
+              <span>✦ MAC · WINDOWS · LINUX</span>
+              <span>✦ $17 ONE-TIME</span>
             </div>
-            <div className="neo-card p-6 flex gap-4">
-              <div className="text-2xl">🔴</div>
-              <div>
-                <h3 className="font-bold mb-1 font-sans">Three signal breakdown</h3>
-                <p className="text-sm">Head position, shoulder slouch, and screen distance tracked independently.</p>
-              </div>
+          ))}
+        </div>
+      </div>
+
+      {/* PROBLEM SECTION */}
+      <section id="benefits" className="bg-cream">
+        <div className="container">
+          <div className="neo-tag">THE PROBLEM</div>
+          <h2 className="scroll-fade" style={{ fontSize: '52px', maxWidth: '600px', marginBottom: '48px' }}>Bad posture is silently wrecking you.</h2>
+          
+          <div className="grid-3">
+            <div className="neo-card scroll-fade">
+              <div style={{ fontSize: '36px', marginBottom: '16px' }}>🤕</div>
+              <h3 style={{ fontSize: '20px', marginBottom: '10px', fontFamily: 'Space Grotesk, sans-serif' }}>Neck and back pain</h3>
+              <p style={{ color: 'var(--muted)' }}>Hours of forward head posture adds up to chronic pain by your 30s.</p>
             </div>
-            <div className="neo-card p-6 flex gap-4">
-              <div className="text-2xl">🔔</div>
-              <div>
-                <h3 className="font-bold mb-1 font-sans">3-second alert</h3>
-                <p className="text-sm">Popup appears after just 3 seconds of bad posture. Instant feedback loop.</p>
-              </div>
+            <div className="neo-card scroll-fade" style={{ background: 'var(--accent)' }}>
+              <div style={{ fontSize: '36px', marginBottom: '16px' }}>😴</div>
+              <h3 style={{ fontSize: '20px', marginBottom: '10px', fontFamily: 'Space Grotesk, sans-serif' }}>Lower energy</h3>
+              <p style={{ color: 'var(--black)' }}>Slouching compresses your lungs, reduces oxygen, and kills your focus.</p>
             </div>
-            <div className="neo-card p-6 flex gap-4">
-              <div className="text-2xl">📊</div>
-              <div>
-                <h3 className="font-bold mb-1 font-sans">Session analytics</h3>
-                <p className="text-sm">See your posture score over time. Daily, weekly, monthly charts.</p>
-              </div>
-            </div>
-            <div className="neo-card p-6 flex gap-4">
-              <div className="text-2xl">🏆</div>
-              <div>
-                <h3 className="font-bold mb-1 font-sans">XP & leaderboard</h3>
-                <p className="text-sm">Earn XP for every minute of good posture. Level up. Beat your friends.</p>
-              </div>
-            </div>
-            <div className="neo-card p-6 flex gap-4">
-              <div className="text-2xl">🔒</div>
-              <div>
-                <h3 className="font-bold mb-1 font-sans">Fully offline</h3>
-                <p className="text-sm">AI runs on your device. No webcam footage ever leaves your computer.</p>
-              </div>
+            <div className="neo-card scroll-fade">
+              <div style={{ fontSize: '36px', marginBottom: '16px' }}>💸</div>
+              <h3 style={{ fontSize: '20px', marginBottom: '10px', fontFamily: 'Space Grotesk, sans-serif' }}>Doctor bills</h3>
+              <p style={{ color: 'var(--muted)' }}>The average physio visit costs more than PosturePal. Forever.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="py-24 overflow-hidden">
-        <style dangerouslySetInnerHTML={{__html: `
-          @keyframes scroll {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(calc(-250px * 6 - 2rem * 6)); }
-          }
-          .marquee { display: flex; gap: 2rem; width: max-content; animation: scroll 20s linear infinite; }
-          .marquee:hover { animation-play-state: paused; }
-        `}} />
-        <div className="px-6 max-w-7xl mx-auto mb-12">
-          <div className="neo-tag mb-6">TESTIMONIALS</div>
-          <h2 style={{ fontSize: '56px' }}>Real people. Actual backs.</h2>
+      {/* HOW IT WORKS SECTION */}
+      <section id="how-it-works" className="bg-white">
+        <div className="container">
+          <div className="neo-tag">HOW IT WORKS</div>
+          <h2 className="scroll-fade" style={{ fontSize: '52px', marginBottom: '56px' }}>Three steps. Five seconds to set up.</h2>
+          
+          <div className="grid-3">
+            {[
+              { num: "01", title: "Open & Calibrate", desc: "Sit up straight and click Calibrate. PosturePal memorizes your perfect posture in 3 seconds.", tag: "3 seconds" },
+              { num: "02", title: "Close the app", desc: "PosturePal hides to your system tray and watches silently while you work, code, or browse.", tag: "Always running" },
+              { num: "03", title: "Get nudged", desc: "The moment you slouch for 3 seconds, a popup appears. See yourself. Fix it. It disappears.", tag: "Instant feedback" }
+            ].map((step, i) => (
+              <div key={i} className="neo-card scroll-fade" style={{ position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: '-10px', left: '20px', fontFamily: 'Instrument Serif', fontSize: '120px', color: '#f0ece3', zIndex: 0, pointerEvents: 'none', lineHeight: 1 }}>{step.num}</div>
+                <div style={{ position: 'relative', zIndex: 1, marginTop: '40px' }}>
+                  <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '12px', fontFamily: 'Space Grotesk, sans-serif' }}>{step.title}</h3>
+                  <p style={{ color: 'var(--muted)' }}>{step.desc}</p>
+                  <div className="neo-tag" style={{ marginTop: '20px', marginBottom: 0 }}>{step.tag}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="marquee pl-6">
-          {[
-            { name: "Sarah J.", text: "It's like having a very annoying but very helpful physical therapist on my monitor." },
-            { name: "Mark T.", text: "The offline privacy is what sold me. The fact that it actually fixed my neck pain is a bonus." },
-            { name: "Elena R.", text: "I didn't realize how much I was leaning forward until PosturePal caught me 20 times on day one." },
-            { name: "David K.", text: "Best $17 I've ever spent. The gamification makes me actually want to sit up straight." },
-            { name: "Chloe M.", text: "Unbelievably fast. No lag, doesn't slow down my code editor at all." },
-            { name: "James L.", text: "I uninstalled my subscription posture app for this. One time payment is the way." },
-            // Duplicates for seamless scroll
-            { name: "Sarah J.", text: "It's like having a very annoying but very helpful physical therapist on my monitor." },
-            { name: "Mark T.", text: "The offline privacy is what sold me. The fact that it actually fixed my neck pain is a bonus." },
-            { name: "Elena R.", text: "I didn't realize how much I was leaning forward until PosturePal caught me 20 times on day one." },
-          ].map((t, i) => (
-            <div key={i} className="neo-card p-6 w-[300px] flex-shrink-0 flex flex-col justify-between">
-              <p className="font-serif italic text-lg mb-4">"{t.text}"</p>
-              <p className="font-bold font-sans">{t.name}</p>
+      </section>
+
+      {/* FEATURES SECTION */}
+      <section id="features" className="bg-cream">
+        <div className="container">
+          <div className="neo-tag">FEATURES</div>
+          <h2 className="scroll-fade" style={{ fontSize: '52px', marginBottom: '48px' }}>Everything you need, nothing you don't.</h2>
+          
+          <div className="grid-2">
+            {[
+              { icon: "🎯", title: "Calibrated to YOU", desc: "Set your baseline once. Scoring is relative to YOUR perfect posture, not a generic average." },
+              { icon: "🔴", title: "Three signal breakdown", desc: "Head position, shoulder slouch, and screen distance tracked as three independent signals." },
+              { icon: "🔔", title: "3-second alert", desc: "Popup appears after just 3 seconds of bad posture. The fastest feedback loop possible." },
+              { icon: "📊", title: "Session analytics", desc: "Daily, weekly, and monthly charts of your posture score. See trends over time." },
+              { icon: "🏆", title: "XP & leaderboard", desc: "Earn XP for every minute of good posture. Level up from Shrimp to PosturePal Master." },
+              { icon: "🔒", title: "Fully offline AI", desc: "MoveNet runs on your device. Zero webcam footage ever leaves your computer. Ever." }
+            ].map((f, i) => (
+              <div key={i} className="neo-card scroll-fade" style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+                <div style={{ width: '48px', height: '48px', background: 'var(--accent)', border: '2px solid black', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '22px' }}>
+                  {f.icon}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '6px', fontFamily: 'Space Grotesk, sans-serif' }}>{f.title}</h3>
+                  <p style={{ color: 'var(--muted)', fontSize: '14px' }}>{f.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* TESTIMONIALS SECTION */}
+      <section id="testimonials" className="bg-white" style={{ overflow: 'hidden' }}>
+        <div className="container" style={{ paddingBottom: '48px' }}>
+          <div className="neo-tag">TESTIMONIALS</div>
+          <h2 className="scroll-fade" style={{ fontSize: '52px', marginBottom: '48px' }}>Real people. Actual backs.</h2>
+        </div>
+        
+        <div style={{ display: 'flex', width: 'fit-content', animation: 'marquee 30s linear infinite' }}>
+          {[1, 2].map(group => (
+            <div key={group} style={{ display: 'flex', gap: '24px', paddingRight: '24px', paddingLeft: group === 1 ? '40px' : '0' }}>
+              {[
+                { quote: "It's like having a very annoying but very helpful physical therapist on my monitor.", name: "Sarah J." },
+                { quote: "The offline privacy is what sold me. The fact that it actually fixed my neck pain is a bonus.", name: "Mark T." },
+                { quote: "I didn't realize how much I was leaning forward until PosturePal caught me 20 times on day one.", name: "Elena R." },
+                { quote: "Best $17 I've ever spent. The gamification makes me actually want to sit up straight.", name: "David K." },
+                { quote: "My chiropractor asked what I changed. I told him I bought a $17 app. He was not amused.", name: "Priya M." },
+                { quote: "Three weeks in and my afternoon headaches are basically gone. Coincidence? I think not.", name: "James L." }
+              ].map((t, i) => (
+                <div key={i} className="neo-card" style={{ width: '300px', flexShrink: 0, padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <p style={{ fontFamily: 'Instrument Serif', fontStyle: 'italic', fontSize: '16px', marginBottom: '16px', lineHeight: 1.5 }}>"{t.quote}"</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '36px', height: '36px', background: 'black', color: 'white', borderRadius: '50%', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {t.name.split(' ')[0][0]}{t.name.split(' ')[1][0]}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '14px' }}>{t.name}</div>
+                      <div style={{ color: '#f59e0b', fontSize: '12px', letterSpacing: '2px' }}>★★★★★</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ))}
         </div>
       </section>
 
-      {/* Pricing */}
-      <section id="pricing" className="bg-white py-24 px-6 border-y-2 border-black flex justify-center">
-        <div className="max-w-3xl w-full flex flex-col items-center text-center">
-          <div className="neo-tag mb-6">PRICING</div>
-          <h2 style={{ fontSize: '56px', marginBottom: '48px' }}>One price. Forever yours.</h2>
+      {/* PRICING SECTION */}
+      <section id="pricing" className="bg-cream" style={{ textAlign: 'center' }}>
+        <div className="container">
+          <div className="neo-tag">PRICING</div>
+          <h2 className="scroll-fade" style={{ fontSize: '52px', marginBottom: '16px' }}>One price. Forever yours.</h2>
+          <p style={{ color: 'var(--muted)', marginBottom: '48px' }}>No subscription. No upsells. Pay once, use forever.</p>
           
-          <div className="neo-card p-10 md:p-14 w-full max-w-lg" style={{ backgroundColor: 'var(--accent)' }}>
-            <div style={{ fontSize: '80px', fontFamily: '"Instrument Serif", serif', lineHeight: 1 }}>$17</div>
-            <p className="font-bold mt-2 mb-8">One-time payment — no subscription, ever.</p>
-            
-            <div className="text-left space-y-4 mb-10 font-medium">
-              <p>✓ Lifetime license (2 devices)</p>
-              <p>✓ Mac, Windows & Linux</p>
-              <p>✓ All future updates free</p>
-              <p>✓ Fully offline — no account needed</p>
-              <p>✓ Session analytics & leaderboard</p>
+          <div className="neo-card scroll-fade" style={{ maxWidth: '480px', margin: '0 auto', background: 'var(--accent)', border: '2px solid black', boxShadow: '8px 8px 0 black', padding: '48px', textAlign: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+              <span style={{ fontFamily: 'Instrument Serif, serif', fontSize: '96px', lineHeight: 1, fontWeight: 400 }}>$17</span>
+              <span style={{ fontSize: '14px', fontWeight: 700, marginLeft: '4px', marginTop: '16px' }}>USD</span>
             </div>
-
-            <a href={paymentLink} className="neo-btn w-full text-center py-4 text-lg">Get PosturePal Now →</a>
-            <p className="text-sm mt-4 font-bold">🔒 Secure payment via Razorpay &nbsp;&nbsp;|&nbsp;&nbsp; 14-day money-back guarantee</p>
+            
+            <p style={{ fontSize: '14px', color: 'rgba(0,0,0,0.6)', margin: '12px 0 32px' }}>One-time payment — no subscription, ever.</p>
+            
+            <div style={{ textAlign: 'left', margin: '0 auto 32px', maxWidth: '280px' }}>
+              {[
+                "✓ Lifetime license (2 devices)",
+                "✓ Mac, Windows & Linux",
+                "✓ All future updates free",
+                "✓ Fully offline — no account needed",
+                "✓ Session analytics & leaderboard"
+              ].map((feature, i) => (
+                <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,0.15)', fontSize: '15px' }}>
+                  {feature}
+                </div>
+              ))}
+            </div>
+            
+            <a href={STRIPE_LINK} className="neo-btn" style={{ width: '100%', fontSize: '16px', justifyContent: 'center' }}>Get PosturePal Now →</a>
+            
+            <div style={{ marginTop: '16px', fontSize: '13px', display: 'flex', justifyContent: 'center', gap: '16px', fontWeight: 600 }}>
+              <span>🔒 Secure payment</span>
+              <span>|</span>
+              <span>14-day money-back guarantee</span>
+            </div>
           </div>
-          <p className="mt-6 font-bold text-gray-500">Cheaper than one physio appointment.</p>
+          
+          <p className="scroll-fade" style={{ marginTop: '20px', fontStyle: 'italic', color: 'var(--muted)' }}>Cheaper than one physio appointment.</p>
         </div>
       </section>
 
-      {/* FAQ */}
-      <section id="faq" className="py-24 px-6">
-        <div className="max-w-3xl mx-auto">
-          <div className="neo-tag mb-6">FAQ</div>
-          <h2 style={{ fontSize: '56px', marginBottom: '48px' }}>Questions answered.</h2>
+      {/* FAQ SECTION */}
+      <section id="faq" className="bg-white">
+        <div className="container" style={{ maxWidth: '720px', margin: '0 auto' }}>
+          <div className="neo-tag">FAQ</div>
+          <h2 className="scroll-fade" style={{ fontSize: '52px', marginBottom: '48px' }}>Questions answered.</h2>
           
-          <div className="space-y-4">
+          <div className="scroll-fade">
             {[
               { q: "Does it work on Mac, Windows, and Linux?", a: "Yes, PosturePal ships as a native installer for all three platforms." },
               { q: "Does my webcam footage get uploaded anywhere?", a: "Never. All AI processing happens on your device. No footage leaves your computer." },
@@ -233,14 +293,17 @@ export default function Home() {
               { q: "What if I want a refund?", a: "Email us within 14 days, no questions asked." },
               { q: "Does it work in the dark?", a: "You need reasonable lighting for the webcam. A standard desk lamp is enough." }
             ].map((faq, i) => (
-              <div key={i} className="neo-card overflow-hidden cursor-pointer" onClick={() => toggleFaq(i)}>
-                <div className="p-6 flex justify-between items-center font-bold text-lg select-none">
+              <div key={i} style={{ border: '2px solid black', marginBottom: '-2px', position: 'relative' }}>
+                <div 
+                  onClick={() => toggleFaq(i)}
+                  style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 600, fontSize: '16px', cursor: 'pointer', background: openFaq === i ? 'var(--accent)' : 'var(--white)', transition: 'background 0.2s' }}
+                >
                   {faq.q}
-                  <span className="text-2xl">{openFaq === i ? '−' : '+'}</span>
+                  <span style={{ fontSize: '20px', fontWeight: 300 }}>{openFaq === i ? '−' : '+'}</span>
                 </div>
                 {openFaq === i && (
-                  <div className="px-6 pb-6 pt-0 border-t-2 border-black bg-white select-none">
-                    <p className="mt-4">{faq.a}</p>
+                  <div style={{ padding: '0 24px 20px', fontSize: '15px', color: 'var(--muted)', lineHeight: 1.7, borderTop: '2px solid black', background: 'white' }}>
+                    <p style={{ marginTop: '20px' }}>{faq.a}</p>
                   </div>
                 )}
               </div>
@@ -249,22 +312,27 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA / Footer */}
-      <section className="bg-black text-white pt-32 pb-12 px-6 flex flex-col items-center text-center">
-        <h2 style={{ fontSize: '72px', marginBottom: '40px' }}>Your back will thank you.</h2>
-        <a href={paymentLink} className="neo-btn mb-32" style={{ backgroundColor: 'var(--accent)', color: 'var(--black)' }}>Get PosturePal for $17</a>
-        
-        <div className="w-full max-w-7xl flex flex-col md:flex-row justify-between items-center pt-8 border-t-2 border-gray-800 text-sm font-medium gap-4">
-          <div className="font-bold text-lg">PosturePal 🦐</div>
-          <div className="flex gap-6">
-            <a href="#benefits" className="hover:text-gray-400">Benefits</a>
-            <a href="#pricing" className="hover:text-gray-400">Pricing</a>
-            <a href="#faq" className="hover:text-gray-400">FAQ</a>
-            <a href="#" className="hover:text-gray-400">Contact</a>
+      {/* CTA / FOOTER SECTION */}
+      <section className="bg-black" style={{ color: 'white', padding: '100px 24px 60px', textAlign: 'center' }}>
+        <div className="container scroll-fade">
+          <h2 style={{ fontSize: '64px', color: 'white', marginBottom: '32px' }}>Your back will thank you.</h2>
+          <a href={STRIPE_LINK} className="neo-btn accent" style={{ fontSize: '16px', padding: '18px 40px' }}>Get PosturePal for $17</a>
+          <p style={{ color: 'rgba(255,255,255,0.5)', marginTop: '16px', fontSize: '14px' }}>One-time payment. Lifetime license.</p>
+          
+          <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.15)', margin: '60px 0 40px' }} />
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+            <div style={{ fontWeight: 700, fontSize: '16px' }}>PosturePal 🦐</div>
+            <div style={{ display: 'flex', gap: '24px', fontSize: '14px' }}>
+              <a href="#benefits" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>Benefits</a>
+              <a href="#how-it-works" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>How it works</a>
+              <a href="#pricing" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>Pricing</a>
+              <a href="#faq" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>FAQ</a>
+            </div>
+            <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>© 2025 PosturePal</div>
           </div>
-          <div>© 2025 PosturePal</div>
         </div>
       </section>
-    </div>
+    </>
   );
 }
