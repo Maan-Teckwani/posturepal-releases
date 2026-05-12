@@ -127,9 +127,9 @@ export default function Home() {
         padding: '0 24px'
       }}>
         <div style={{ maxWidth: 'var(--max-width)', margin: '0 auto', width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-            <div style={{ fontWeight: 700, fontSize: '18px' }}>PosturePal</div>
-            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 500 }}>your spine's intervention app</div>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div style={{ fontWeight: 700, fontSize: '18px', lineHeight: 1.1 }}>PosturePal</div>
+            <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600, marginTop: '2px', letterSpacing: '0.02em' }}>your spine's intervention app</div>
           </div>
           <div className="nav-links" style={{ display: 'flex', gap: '32px', fontSize: '14px', fontWeight: 500 }}>
             <a href="#benefits" style={{ textDecoration: 'none', color: 'var(--black)' }}>Benefits</a>
