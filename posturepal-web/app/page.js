@@ -1,83 +1,25 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = (supabaseUrl && supabaseAnonKey) ? createClient(supabaseUrl, supabaseAnonKey) : null;
-
-const WaitlistForm = ({ buttonText = "Join Waitlist", style = {} }) => {
-  const [email, setEmail] = useState('');
-  const [status, setStatus] = useState('idle');
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!email) return;
-
-    if (!supabase) {
-      console.warn('Supabase not configured. Simulating success.');
-      setStatus('loading');
-      setTimeout(() => setStatus('success'), 1000);
-      return;
-    }
-
-    setStatus('loading');
-    try {
-      const { data, error } = await supabase
-        .from('waitlist')
-        .insert([{ email }]);
-
-      if (error) throw error;
-      setStatus('success');
-    } catch (err) {
-      console.error('Waitlist error:', err);
-      setStatus('error');
-    }
+const RazorpayButton = ({ amount = 299, buttonText = "Buy Now →" }) => {
+  const handlePayment = () => {
+    window.open(process.env.NEXT_PUBLIC_RAZORPAY_LINK || 'https://rzp.io/l/YOUR_RAZORPAY_LINK', '_blank');
   };
 
-  if (status === 'success') {
-    return (
-      <div style={{ background: 'var(--accent)', color: 'var(--black)', padding: '14px 20px', fontWeight: 700, border: '2px solid var(--black)', display: 'inline-block', ...style }}>
-        ✓ The group chat has been notified. You're on the list!
-      </div>
-    );
-  }
-
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '8px', width: '100%', flexWrap: 'wrap', ...style }}>
-      <input
-        type="email"
-        value={email}
-        onChange={e => setEmail(e.target.value)}
-        placeholder="Enter your email"
-        required
-        style={{
-          flex: '1',
-          minWidth: '200px',
-          padding: '14px 16px',
-          border: '2px solid var(--black)',
-          fontFamily: 'Space Grotesk, sans-serif',
-          fontSize: '15px',
-          outline: 'none',
-          boxShadow: 'inset 2px 2px 0px rgba(0,0,0,0.05)',
-          color: 'var(--black)'
-        }}
-      />
-      <button
-        type="submit"
-        className="neo-btn accent"
-        disabled={status === 'loading'}
-        style={{ opacity: status === 'loading' ? 0.7 : 1, whiteSpace: 'nowrap' }}
-      >
-        {status === 'loading' ? 'Joining...' : buttonText}
-      </button>
-      {status === 'error' && (
-        <div style={{ width: '100%', color: '#ef4444', fontSize: '13px', marginTop: '4px', fontWeight: 600 }}>
-          Something went wrong. The group chat rejected it. Try again.
-        </div>
-      )}
-    </form>
+    <button
+      onClick={handlePayment}
+      className="neo-btn accent"
+      style={{
+        fontSize: '16px',
+        padding: '16px 32px',
+        whiteSpace: 'nowrap',
+        cursor: 'pointer'
+      }}
+    >
+      {buttonText}
+    </button>
   );
 };
 
@@ -135,12 +77,12 @@ export default function Home() {
             <a href="#benefits" style={{ textDecoration: 'none', color: 'var(--black)' }}>Benefits</a>
             <a href="#intervention" style={{ textDecoration: 'none', color: 'var(--black)' }}>The Chat</a>
             <a href="#how-it-works" style={{ textDecoration: 'none', color: 'var(--black)' }}>How it works</a>
-            <a href="#pricing" style={{ textDecoration: 'none', color: 'var(--black)' }}>Waitlist</a>
+            <a href="#pricing" style={{ textDecoration: 'none', color: 'var(--black)' }}>Buy</a>
             <a href="#faq" style={{ textDecoration: 'none', color: 'var(--black)' }}>FAQ</a>
           </div>
           <div className="nav-links">
             <a href="#pricing" className="neo-btn" style={{ fontSize: '13px', padding: '10px 20px', background: 'var(--accent)', color: 'var(--black)' }}>
-              Join Waitlist
+              Buy Now — Rs. 299
             </a>
           </div>
         </div>
@@ -155,16 +97,22 @@ export default function Home() {
             <div className="fade-up fade-up-delay-1" style={{ fontSize: '40px', fontFamily: 'Instrument Serif', fontStyle: 'italic', marginBottom: '20px', fontWeight: 400 }}>It's not looking good in there.</div>
             <p className="fade-up fade-up-delay-2" style={{ fontSize: '18px', color: 'var(--muted)', maxWidth: '480px', marginBottom: '32px' }}>
               PosturePal uses your webcam and on-device AI to catch you slouching before your body files a formal complaint.
-              <strong> We're launching soon. Get on the waitlist.</strong>
+              <strong> One-time payment. Your spine will stop yelling.</strong>
             </p>
 
             <div className="fade-up fade-up-delay-3" style={{ maxWidth: '420px' }}>
-              <WaitlistForm buttonText="Join Waitlist" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+                <span style={{ fontSize: '36px', fontWeight: 700, fontFamily: 'Instrument Serif' }}>Rs. 299</span>
+                <span style={{ fontSize: '14px', color: 'var(--muted)', textDecoration: 'line-through', fontWeight: 600 }}>Rs. 599</span>
+                <span style={{ background: 'var(--accent)', border: '2px solid var(--black)', padding: '2px 8px', fontSize: '11px', fontWeight: 700 }}>LIFETIME</span>
+              </div>
+              <RazorpayButton buttonText="Buy Now — Rs. 299" />
             </div>
 
             <div className="fade-up fade-up-delay-4" style={{ marginTop: '20px', display: 'flex', gap: '20px', fontSize: '13px', color: 'var(--muted)', flexWrap: 'wrap' }}>
               <span>✓ Mac, Windows & Linux</span>
               <span>✓ 100% Offline AI</span>
+              <span>✓ Lifetime license</span>
             </div>
           </div>
 
@@ -362,7 +310,6 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-
             </div>
           </div>
 
@@ -370,7 +317,7 @@ export default function Home() {
             Sound familiar? PosturePal stages the intervention your body has been planning.
           </p>
           <div className="scroll-fade" style={{ display: 'flex', justifyContent: 'center' }}>
-            <WaitlistForm buttonText="Get on the waitlist" />
+            <RazorpayButton buttonText="Buy Now — Rs. 299" />
           </div>
         </div>
       </section>
@@ -464,7 +411,7 @@ export default function Home() {
                 { quote: "PosturePal is the only coworker who gives me honest feedback without scheduling a meeting about it.", name: "James L." }
               ].map((t, i) => (
                 <div key={i} className="neo-card" style={{ width: '300px', flexShrink: 0, padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <p style={{ fontFamily: 'Instrument Serif', fontStyle: 'italic', fontSize: '16px', marginBottom: '16px', lineHeight: 1.5 }}>"{t.quote}"</p>
+                  <p style={{ fontFamily: 'Instrument Serif', fontStyle: 'italic', fontSize: '16px', marginBottom: '16px', lineHeight: 1.5 }}>{"\""}{t.quote}{"\""}</p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{ width: '36px', height: '36px', background: 'black', color: 'white', borderRadius: '50%', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {t.name.split(' ')[0][0]}{t.name.split(' ')[1][0]}
@@ -481,22 +428,26 @@ export default function Home() {
         </div>
       </section>
 
-      {/* WAITLIST SECTION (Formally Pricing) */}
+      {/* PRICING SECTION */}
       <section id="pricing" className="bg-white" style={{ textAlign: 'center' }}>
         <div className="container">
-          <div className="neo-tag">WAITLIST</div>
-          <h2 className="scroll-fade" style={{ fontSize: '52px', marginBottom: '16px' }}>The group chat is currently at capacity.</h2>
-          <p className="scroll-fade" style={{ color: 'var(--muted)', marginBottom: '48px', maxWidth: '600px', margin: '0 auto 48px auto' }}>We're rolling out invites soon. Drop your email to reserve your spot. No spam, just a heads up when you can finally mute your spine.</p>
+          <div className="neo-tag">BUY NOW</div>
+          <h2 className="scroll-fade" style={{ fontSize: '52px', marginBottom: '16px' }}>The group chat has been waiting.</h2>
+          <p className="scroll-fade" style={{ color: 'var(--muted)', marginBottom: '48px', maxWidth: '600px', margin: '0 auto 48px auto' }}>
+            One payment. Lifetime peace. No subscriptions. No drama. Just a quiet spine.
+          </p>
 
           <div className="neo-card scroll-fade" style={{ maxWidth: '480px', margin: '0 auto', background: 'var(--accent)', border: '2px solid black', boxShadow: '8px 8px 0 black', padding: '48px', textAlign: 'center' }}>
 
-            <p style={{ fontSize: '16px', color: 'var(--black)', fontWeight: 700, margin: '12px 0 24px' }}>Get early access.</p>
+            <p style={{ fontSize: '16px', color: 'var(--black)', fontWeight: 700, margin: '12px 0 24px' }}>Lifetime License — Rs. 299</p>
 
             <div style={{ textAlign: 'left', margin: '0 auto 32px', maxWidth: '280px' }}>
               {[
-                "✓ Early bird invite",
-                "✓ Lifetime license discount",
-                "✓ Beta tester perks",
+                "✓ Lifetime license (not a subscription)",
+                "✓ 2 devices",
+                "✓ 100% offline AI",
+                "✓ No webcam footage leaves your device",
+                "✓ License key delivered via email",
               ].map((feature, i) => (
                 <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,0.15)', fontSize: '15px' }}>
                   {feature}
@@ -504,12 +455,18 @@ export default function Home() {
               ))}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <WaitlistForm buttonText="Reserve spot →" style={{ justifyContent: 'center' }} />
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px' }}>
+              <RazorpayButton buttonText="Pay Rs. 299 →" />
             </div>
+
+            <p style={{ marginTop: '20px', fontSize: '13px', color: 'var(--muted)' }}>
+              Secure payment via Razorpay. Instant license key delivery.
+            </p>
           </div>
 
-          <p className="scroll-fade" style={{ marginTop: '20px', fontStyle: 'italic', color: 'var(--muted)' }}>Lower Back has reviewed this list and strongly encourages you to join it.</p>
+          <p className="scroll-fade" style={{ marginTop: '20px', fontStyle: 'italic', color: 'var(--muted)' }}>
+            Lower Back has reviewed this pricing and confirms it's worth it.
+          </p>
         </div>
       </section>
 
@@ -521,12 +478,12 @@ export default function Home() {
 
           <div className="scroll-fade">
             {[
-              { q: "When are you launching?", a: "Very soon. We're polishing up the intervention logic so it's perfectly calibrated. You'll get an email as soon as we open the doors." },
+              { q: "When does this ship?", a: "It's available now. Buy it, download it, and start improving your posture today." },
               { q: "Does my webcam footage get sent anywhere?", a: "Never. All AI processing happens on your device. Eyes was personally involved in this decision and will not budge." },
               { q: "Does it work on Mac, Windows, and Linux?", a: "Yes. The group chat does not discriminate by operating system." },
               { q: "What if I wear glasses or have a beard?", a: "PosturePal tracks skeletal keypoints — shoulders, ears, nose — not facial features. Glasses and beards are irrelevant. Neck doesn't care what you look like, only how you sit." },
               { q: "Can I use it on two computers?", a: "Yes. The license covers 2 devices. Lower Back travels with you." },
-              { q: "Will there be a subscription?", a: "No. It will be a one-time purchase. No subscription drama." }
+              { q: "Is this a subscription?", a: "No. One payment. Lifetime access. No subscription drama. Ever." }
             ].map((faq, i) => (
               <div key={i} style={{ border: '2px solid black', marginBottom: '-2px', position: 'relative' }}>
                 <div
@@ -553,10 +510,12 @@ export default function Home() {
           <h2 style={{ fontSize: '64px', color: 'white', marginBottom: '32px' }}>Your neck asked us to intervene.</h2>
 
           <div style={{ display: 'flex', justifyContent: 'center', margin: '40px 0' }}>
-            <WaitlistForm buttonText="Get on the waitlist" />
+            <RazorpayButton buttonText="Buy Now — Rs. 299" />
           </div>
 
-          <p style={{ color: 'rgba(255,255,255,0.5)', marginTop: '16px', fontSize: '14px' }}>We're launching soon. Join the list to finally put the group chat on mute.</p>
+          <p style={{ color: 'rgba(255,255,255,0.5)', marginTop: '16px', fontSize: '14px' }}>
+            One payment. Lifetime peace. Get PosturePal now.
+          </p>
 
           <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.15)', margin: '60px 0 40px' }} />
 
@@ -566,7 +525,7 @@ export default function Home() {
               <a href="#benefits" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>Benefits</a>
               <a href="#intervention" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>The Chat</a>
               <a href="#how-it-works" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>How it works</a>
-              <a href="#pricing" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>Waitlist</a>
+              <a href="#pricing" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>Buy</a>
               <a href="#faq" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>FAQ</a>
             </div>
             <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>© 2026 PosturePal</div>
