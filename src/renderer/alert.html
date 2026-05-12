@@ -3,7 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <title>Alert</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --black: #0a0a0a;
+      --white: #ffffff;
+      --cream: #f5f0e8;
+      --accent: #d4f57a;
+      --border: 2px solid #0a0a0a;
+      --shadow-sm: 3px 3px 0px #0a0a0a;
+    }
     body {
       margin: 0;
       padding: 0;
@@ -11,11 +20,10 @@
       height: 100vh;
       overflow: hidden;
       background-color: transparent;
-      border: 4px solid #f44336;
+      border: 4px solid red;
       box-sizing: border-box;
-      border-radius: 12px;
       position: relative;
-      font-family: sans-serif;
+      font-family: 'Space Grotesk', sans-serif;
       transition: border-color 0.3s;
     }
     video {
@@ -31,81 +39,101 @@
     }
     .top-bar {
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: rgba(0, 0, 0, 0.7);
-      padding: 10px;
+      top: 8px;
+      left: 8px;
+      background: var(--white);
+      border: var(--border);
+      box-shadow: var(--shadow-sm);
+      padding: 4px 10px;
       display: flex;
-      justify-content: space-between;
+      gap: 12px;
       align-items: center;
-      color: white;
-      border-top-left-radius: 8px;
-      border-top-right-radius: 8px;
+      color: var(--black);
+      z-index: 10;
+      border-radius: 4px;
     }
     .bottom-bar {
       position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: rgba(0, 0, 0, 0.7);
-      padding: 10px;
+      bottom: 8px;
+      left: 8px;
+      right: 8px;
       display: flex;
-      justify-content: space-around;
+      justify-content: space-between;
       align-items: center;
-      color: white;
-      border-bottom-left-radius: 8px;
-      border-bottom-right-radius: 8px;
+      z-index: 10;
     }
     .close-btn {
       position: absolute;
       top: 8px;
       right: 8px;
       cursor: pointer;
-      color: white;
+      color: var(--black);
       font-weight: bold;
-      background: rgba(0, 0, 0, 0.5);
-      border-radius: 50%;
-      width: 20px;
-      height: 20px;
+      background: var(--accent);
+      border: var(--border);
+      box-shadow: var(--shadow-sm);
+      width: 24px;
+      height: 24px;
       display: flex;
       justify-content: center;
       align-items: center;
-      font-size: 12px;
+      font-size: 14px;
       z-index: 10;
+      border-radius: 4px;
+      transition: transform 0.1s ease;
     }
     .close-btn:hover {
-      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.1);
     }
     .dot-container {
       display: flex;
       flex-direction: column;
       align-items: center;
-      font-size: 10px;
-      color: #b0b0b0;
+      justify-content: center;
+      font-size: 9px;
+      color: var(--black);
+      background: var(--white);
+      border: var(--border);
+      box-shadow: var(--shadow-sm);
+      padding: 4px 2px;
+      width: 48px;
+      font-weight: bold;
+      border-radius: 4px;
+      text-align: center;
     }
     .dot {
       width: 10px;
       height: 10px;
-      border-radius: 50%;
-      margin-bottom: 4px;
-      background-color: #f44336;
+      border: var(--border);
+      margin-bottom: 2px;
+      background-color: red;
       transition: background-color 0.3s;
     }
     .score {
       font-weight: bold;
-      font-size: 18px;
+      font-size: 20px;
+      font-family: 'Instrument Serif', serif;
+    }
+    #message {
+      font-size: 13px;
+      font-weight: bold;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 160px;
     }
   </style>
 </head>
 <body>
   <div class="close-btn" id="closeBtn">✕</div>
   <div class="top-bar">
-    <span id="message" style="font-size: 14px; font-weight: bold; max-width: 70%; margin-right: 20px;">Fix your posture! 🪑</span>
+    <span id="message">Fix your posture! 🪑</span>
     <span id="score" class="score">0</span>
   </div>
   <div class="bottom-bar">
-    <div class="dot-container"><div class="dot" id="dotHead"></div>Head</div>
+    <div class="dot-container"><div class="dot" id="dotHeadFwd"></div>Head Fwd</div>
+    <div class="dot-container"><div class="dot" id="dotHeadDown"></div>Head Down</div>
+    <div class="dot-container"><div class="dot" id="dotTilt"></div>Tilt</div>
     <div class="dot-container"><div class="dot" id="dotShoulders"></div>Shoulders</div>
     <div class="dot-container"><div class="dot" id="dotDistance"></div>Distance</div>
   </div>
@@ -123,42 +151,44 @@
 
     window.api.onAlertData((data) => {
       const { score, signals } = data;
-      const isGood = score >= 60;
+      const isGood = signals.headForward.ok && 
+                     signals.headDown.ok && 
+                     signals.headTilt.ok && 
+                     signals.shoulders.ok && 
+                     signals.distance.ok;
       
-      document.body.style.borderColor = isGood ? '#4caf50' : '#f44336';
+      document.body.style.borderColor = isGood ? 'var(--accent)' : 'red';
       
       const scoreEl = document.getElementById('score');
       scoreEl.innerText = score;
-      scoreEl.style.color = isGood ? '#4caf50' : '#f44336';
+      scoreEl.style.color = isGood ? 'var(--accent)' : 'red';
 
-      const dotHead = document.getElementById('dotHead');
+      const dotHeadFwd = document.getElementById('dotHeadFwd');
+      const dotHeadDown = document.getElementById('dotHeadDown');
+      const dotTilt = document.getElementById('dotTilt');
       const dotShoulders = document.getElementById('dotShoulders');
       const dotDistance = document.getElementById('dotDistance');
 
-      dotHead.style.backgroundColor = signals.head.ok ? '#4caf50' : '#f44336';
-      dotShoulders.style.backgroundColor = signals.shoulders.ok ? '#4caf50' : '#f44336';
-      dotDistance.style.backgroundColor = signals.distance.ok ? '#4caf50' : '#f44336';
+      dotHeadFwd.style.backgroundColor = signals.headForward.ok ? 'var(--accent)' : 'red';
+      dotHeadDown.style.backgroundColor = signals.headDown.ok ? 'var(--accent)' : 'red';
+      dotTilt.style.backgroundColor = signals.headTilt.ok ? 'var(--accent)' : 'red';
+      dotShoulders.style.backgroundColor = signals.shoulders.ok ? 'var(--accent)' : 'red';
+      dotDistance.style.backgroundColor = signals.distance.ok ? 'var(--accent)' : 'red';
 
       let message = "Fix your posture! 🪑";
-      if (score >= 60) {
+      if (isGood) {
         message = "Good posture! 🌟";
       } else {
-        const badSignals = [];
-        if (!signals.head.ok) badSignals.push({ type: 'head', severity: signals.head.delta / 0.08 });
-        if (!signals.shoulders.ok) badSignals.push({ type: 'shoulders', severity: signals.shoulders.delta / 0.08 });
-        if (!signals.distance.ok) {
-          const severity = signals.distance.tooClose ? signals.distance.delta / 0.10 : Math.abs(signals.distance.delta) / 0.15;
-          badSignals.push({ type: 'distance', severity, tooClose: signals.distance.tooClose, tooFar: signals.distance.tooFar });
-        }
-        if (badSignals.length > 0) {
-          badSignals.sort((a, b) => b.severity - a.severity);
-          const worst = badSignals[0];
-          if (worst.type === 'head') message = "Lift your head up 👆";
-          else if (worst.type === 'shoulders') message = "Relax your shoulders 💪";
-          else if (worst.type === 'distance') {
-            if (worst.tooClose) message = "Move back from the screen 🖥️";
-            else if (worst.tooFar) message = "Move closer to the screen";
-          }
+        const bad = [];
+        if (!signals.headDown.ok)    bad.push({ key: 'headDown',    delta: signals.headDown.delta,    msg: 'Lift your chin up 👆' });
+        if (!signals.distance.ok)    bad.push({ key: 'distance',    delta: 0.5,                       msg: signals.distance.tooClose ? 'Move away from the screen 🖥️' : 'Move closer to the screen' });
+        if (!signals.headForward.ok) bad.push({ key: 'headForward', delta: signals.headForward.delta, msg: 'Pull your head back 🐢' });
+        if (!signals.shoulders.ok)   bad.push({ key: 'shoulders',   delta: signals.shoulders.delta,   msg: 'Relax your shoulders 💪' });
+        if (!signals.headTilt.ok)    bad.push({ key: 'headTilt',    delta: signals.headTilt.delta,    msg: 'Level your head ↔️' });
+        
+        if (bad.length > 0) {
+          bad.sort((a, b) => b.delta - a.delta);
+          message = bad[0].msg;
         }
       }
       document.getElementById('message').innerText = message;

@@ -4,7 +4,13 @@
 @tailwind components;
 @tailwind utilities;
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 :root {
   --black: #0a0a0a;
@@ -22,7 +28,9 @@
   --section-pad: 100px 24px;
 }
 
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+}
 
 body {
   font-family: 'Space Grotesk', sans-serif;
@@ -33,7 +41,9 @@ body {
   overflow-x: hidden;
 }
 
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   font-family: 'Instrument Serif', serif;
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -46,7 +56,9 @@ h1, h2, h3 {
   padding: 0 40px;
 }
 
-section { padding: var(--section-pad); }
+section {
+  padding: var(--section-pad);
+}
 
 /* ── Neo components ── */
 .neo-card {
@@ -115,25 +127,69 @@ section { padding: var(--section-pad); }
 }
 
 /* ── Section alternating backgrounds ── */
-.bg-cream { background: var(--cream); }
-.bg-white { background: var(--white); }
-.bg-black { background: var(--black); color: var(--white); }
-.bg-accent { background: var(--accent); }
+.bg-cream {
+  background: var(--cream);
+}
+
+.bg-white {
+  background: var(--white);
+}
+
+.bg-black {
+  background: var(--black);
+  color: var(--white);
+}
+
+.bg-accent {
+  background: var(--accent);
+}
 
 /* ── Animations ── */
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(32px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes marquee {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50%       { transform: translateY(-10px); }
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes typingDot {
+
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+  }
+
+  30% {
+    transform: translateY(-6px);
+  }
 }
 
 .fade-up {
@@ -141,10 +197,21 @@ section { padding: var(--section-pad); }
   animation: fadeUp 0.6s ease forwards;
 }
 
-.fade-up-delay-1 { animation-delay: 0.1s; }
-.fade-up-delay-2 { animation-delay: 0.2s; }
-.fade-up-delay-3 { animation-delay: 0.3s; }
-.fade-up-delay-4 { animation-delay: 0.4s; }
+.fade-up-delay-1 {
+  animation-delay: 0.1s;
+}
+
+.fade-up-delay-2 {
+  animation-delay: 0.2s;
+}
+
+.fade-up-delay-3 {
+  animation-delay: 0.3s;
+}
+
+.fade-up-delay-4 {
+  animation-delay: 0.4s;
+}
 
 /* ── Grids ── */
 .grid-3 {
@@ -160,15 +227,42 @@ section { padding: var(--section-pad); }
 }
 
 /* ── Divider ── */
-.divider { border: none; border-top: var(--border); margin: 0; }
+.divider {
+  border: none;
+  border-top: var(--border);
+  margin: 0;
+}
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
-  .grid-3, .grid-2 { grid-template-columns: 1fr; }
-  .container { padding: 0 20px; }
-  section { padding: 60px 20px; }
-  h1 { font-size: 48px !important; }
-  h2 { font-size: 36px !important; }
-  .hero-buttons { flex-direction: column; align-items: flex-start; }
-  .nav-links { display: none !important; }
+
+  .grid-3,
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .container {
+    padding: 0 20px;
+  }
+
+  section {
+    padding: 60px 20px;
+  }
+
+  h1 {
+    font-size: 48px !important;
+  }
+
+  h2 {
+    font-size: 36px !important;
+  }
+
+  .hero-buttons {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .nav-links {
+    display: none !important;
+  }
 }

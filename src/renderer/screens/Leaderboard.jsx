@@ -71,26 +71,26 @@ const Leaderboard = () => {
 
   if (loading) {
     return (
-      <div style={{ padding: '30px', color: 'white', textAlign: 'center', marginTop: '100px' }}>
-        <h2 style={{ color: '#61dafb' }}>Connecting to Leaderboard...</h2>
+      <div style={{ padding: '30px', color: 'var(--black)', textAlign: 'center', marginTop: '100px', fontFamily: "'Space Grotesk', sans-serif" }}>
+        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: '48px' }}>Connecting to Leaderboard...</h2>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ padding: '30px', color: 'white', textAlign: 'center', marginTop: '100px' }}>
-        <h2 style={{ color: '#f44336' }}>{error}</h2>
-        <p>Could not connect to the global leaderboard.</p>
+      <div style={{ padding: '30px', color: 'var(--black)', textAlign: 'center', marginTop: '100px', fontFamily: "'Space Grotesk', sans-serif" }}>
+        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: '48px', color: 'red' }}>{error}</h2>
+        <p style={{ fontWeight: 'bold' }}>Could not connect to the global leaderboard.</p>
       </div>
     );
   }
 
   if (users.length === 0) {
     return (
-      <div style={{ padding: '30px', color: 'white', textAlign: 'center', marginTop: '100px' }}>
-        <h2 style={{ color: '#61dafb' }}>Leaderboard is empty!</h2>
-        <p>Start tracking your posture to claim the #1 spot.</p>
+      <div style={{ padding: '30px', color: 'var(--black)', textAlign: 'center', marginTop: '100px', fontFamily: "'Space Grotesk', sans-serif" }}>
+        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: '48px' }}>Leaderboard is empty!</h2>
+        <p style={{ fontWeight: 'bold' }}>Start tracking your posture to claim the #1 spot.</p>
       </div>
     );
   }
@@ -98,16 +98,16 @@ const Leaderboard = () => {
   const topXP = users[0].xp || 1;
 
   return (
-    <div style={{ padding: '30px', color: 'white', maxWidth: '800px', margin: '0 auto', height: '100%', overflowY: 'auto' }}>
-      <h2 style={{ color: '#61dafb', marginBottom: '20px' }}>Global Leaderboard</h2>
+    <div style={{ padding: '30px', color: 'var(--black)', maxWidth: '800px', margin: '0 auto', height: '100%', overflowY: 'auto', fontFamily: "'Space Grotesk', sans-serif" }}>
+      <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: '48px', marginBottom: '30px', margin: '0 0 20px 0' }}>Global Leaderboard</h2>
       
-      <div style={{ backgroundColor: '#1a1a1a', borderRadius: '12px', overflow: 'hidden' }}>
+      <div style={{ backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', overflow: 'hidden' }}>
         {users.map((user, index) => {
           const isMe = user.username === currentUser;
           const levelIndex = Math.max(0, Math.min(user.level - 1, LEVEL_TITLES.length - 1));
           const title = LEVEL_TITLES[levelIndex];
 
-          let rankColor = '#aaa';
+          let rankColor = 'var(--black)';
           if (index === 0) rankColor = '#ffd700'; // gold
           else if (index === 1) rankColor = '#c0c0c0'; // silver
           else if (index === 2) rankColor = '#cd7f32'; // bronze
@@ -115,24 +115,24 @@ const Leaderboard = () => {
           return (
             <div key={user.id} style={{ 
               display: 'flex', alignItems: 'center', padding: '15px 20px', 
-              backgroundColor: isMe ? 'rgba(33, 150, 243, 0.15)' : 'transparent',
-              borderBottom: '1px solid #333'
+              backgroundColor: isMe ? 'var(--accent)' : 'transparent',
+              borderBottom: index === users.length - 1 ? 'none' : 'var(--border)'
             }}>
-              <div style={{ width: '40px', fontWeight: 'bold', fontSize: '18px', color: rankColor }}>
+              <div style={{ width: '50px', fontWeight: 'bold', fontSize: '24px', fontFamily: "'Instrument Serif', serif", color: rankColor }}>
                 #{index + 1}
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 'bold', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {user.username} {isMe && <span style={{ fontSize: '10px', backgroundColor: '#2196f3', padding: '2px 6px', borderRadius: '10px' }}>YOU</span>}
+                  {user.username} {isMe && <span style={{ fontSize: '10px', backgroundColor: 'var(--black)', color: 'var(--white)', padding: '2px 6px', border: '1px solid var(--black)' }}>YOU</span>}
                 </div>
-                <div style={{ fontSize: '12px', color: '#aaa', marginTop: '4px' }}>
-                  Lvl {user.level} — {title}
+                <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px', fontWeight: 'bold' }}>
+                  LVL {user.level} — {title}
                 </div>
               </div>
               <div style={{ width: '150px', textAlign: 'right' }}>
-                <div style={{ fontWeight: 'bold', fontSize: '18px' }}>{user.xp} XP</div>
-                <div style={{ width: '100%', height: '4px', backgroundColor: '#333', borderRadius: '2px', marginTop: '5px', overflow: 'hidden' }}>
-                  <div style={{ width: `${(user.xp / topXP) * 100}%`, height: '100%', backgroundColor: rankColor === '#aaa' ? '#4caf50' : rankColor }}></div>
+                <div style={{ fontWeight: 'bold', fontSize: '24px', fontFamily: "'Instrument Serif', serif" }}>{user.xp} XP</div>
+                <div style={{ width: '100%', height: '8px', backgroundColor: 'var(--cream)', border: '1px solid var(--black)', marginTop: '5px', overflow: 'hidden' }}>
+                  <div style={{ width: `${(user.xp / topXP) * 100}%`, height: '100%', backgroundColor: 'var(--black)' }}></div>
                 </div>
               </div>
             </div>

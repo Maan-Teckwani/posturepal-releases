@@ -18,9 +18,10 @@ export const useDetectionLoop = ({ videoRef, detectPose, isLoaded, isReady, onSc
     const tick = async () => {
       if (!videoRef.current || !isLoaded || !isReady || isPaused) return;
       
-      const keypoints = await detectPoseRef.current(videoRef.current);
+      const video = videoRef.current;
+      const keypoints = await detectPoseRef.current(video);
       if (keypoints) {
-        onScoreRef.current(keypoints);
+        onScoreRef.current(keypoints, video.videoWidth, video.videoHeight);
       }
     };
 

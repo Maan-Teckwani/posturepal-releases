@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage } = require
 const path = require('path');
 const Store = require('electron-store');
 const { createCanvas } = require('canvas');
+const { autoUpdater } = require('electron-updater');
 
 const store = new Store({
   defaults: {
@@ -17,6 +18,37 @@ const store = new Store({
     licenseKey: null
   }
 });
+
+function setupAutoUpdater() {
+  if (!app.isPackaged) return;
+
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => console.log('Checking for updates...'));
+  
+  autoUpdater.on('update-available', (info) => {
+    if (mainWindow) mainWindow.webContents.send('update:available', info);
+  });
+
+  autoUpdater.on('update-not-available', () => console.log('App is up to date.'));
+
+  autoUpdater.on('download-progress', (progress) => {
+    if (mainWindow) mainWindow.webContents.send('update:progress', Math.round(progress.percent));
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    if (mainWindow) mainWindow.webContents.send('update:ready');
+  });
+
+  autoUpdater.on('error', (err) => console.error('Auto-updater error:', err.message));
+
+  setTimeout(() => autoUpdater.checkForUpdates(), 5000);
+  setInterval(() => autoUpdater.checkForUpdates(), 4 * 60 * 60 * 1000);
+}
+
+ipcMain.handle('update:download', () => autoUpdater.downloadUpdate());
+ipcMain.handle('update:install', () => autoUpdater.quitAndInstall());
 
 let alertWindow = null;
 let backgroundWindow = null;
@@ -197,11 +229,16 @@ app.whenReady().then(() => {
     openAtLogin: settings.runOnStartup || false,
     openAsHidden: true
   });
+  if (store.get('calibrationVersion') !== 2) {
+    store.delete('calibration');
+    store.set('calibrationVersion', 2);
+  }
 
   createBackgroundWindow();
   createWindow();
   createAlertWindow();
   createTray();
+  setupAutoUpdater();
 
   app.on('activate', function () {
     if (mainWindow && !mainWindow.isVisible()) {

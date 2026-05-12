@@ -14,8 +14,8 @@ function dist(a, b) {
   return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
 }
 
-function calculateRatios(kps) {
-  if (!kps) return null;
+function calculateRatios(kps, vWidth) {
+  if (!kps || !vWidth) return null;
   const nose = getKeypoint(kps, 'nose');
   const leftEar = getKeypoint(kps, 'left_ear');
   const rightEar = getKeypoint(kps, 'right_ear');
@@ -26,24 +26,21 @@ function calculateRatios(kps) {
 
   if (!nose || !leftEar || !rightEar || !leftEye || !rightEye || !leftShoulder || !rightShoulder) return null;
 
-  const minConfidence = 0.3;
-  if (nose.score < minConfidence || leftEar.score < minConfidence || rightEar.score < minConfidence || 
-      leftEye.score < minConfidence || rightEye.score < minConfidence || 
-      leftShoulder.score < minConfidence || rightShoulder.score < minConfidence) {
-    return null;
-  }
-
   const earMid = midpoint(leftEar, rightEar);
   const shoulderMid = midpoint(leftShoulder, rightShoulder);
   const shoulderWidth = dist(leftShoulder, rightShoulder);
-  const eyeDistance = dist(leftEye, rightEye);
+  const eyeDist = dist(leftEye, rightEye);
+  const faceWidth = dist(leftEar, rightEar);
 
-  if (shoulderWidth === 0) return null;
+  if (shoulderWidth === 0 || vWidth === 0) return null;
 
   return {
-    headForwardRatio: (earMid.x - shoulderMid.x) / shoulderWidth,
+    headForwardRatio: (shoulderMid.x - earMid.x) / shoulderWidth,
+    noseToShoulderRatio: (shoulderMid.y - nose.y) / shoulderWidth,
+    earTiltDelta: Math.abs(leftEar.y - rightEar.y) / shoulderWidth,
     neckRatio: (shoulderMid.y - earMid.y) / shoulderWidth,
-    distanceRatio: eyeDistance / shoulderWidth
+    faceToFrameRatio: faceWidth / vWidth,
+    distanceRatioB: eyeDist / shoulderWidth
   };
 }
 
@@ -173,15 +170,35 @@ const Dashboard = () => {
         setCountdown(currentCount);
       } else {
         clearInterval(interval);
-        if (latestKeypointsRef.current) {
-          const baseline = calculateRatios(latestKeypointsRef.current);
+        if (latestKeypointsRef.current && videoRef.current) {
+          const kps = latestKeypointsRef.current;
+          const vWidth = videoRef.current.videoWidth;
+          
+          const required = ['nose','left_eye','right_eye','left_ear','right_ear','left_shoulder','right_shoulder'];
+          const allVisible = required.every(name => {
+            const kp = kps.find(k => k.name === name);
+            return kp && kp.score > 0.5;
+          });
+
+          if (!allVisible) {
+            alert('Cannot calibrate — make sure your face and shoulders are clearly visible.');
+            setCalibrationState('idle');
+            return;
+          }
+
+          const baseline = calculateRatios(kps, vWidth);
           if (baseline) {
             window.api.setData('calibration', baseline);
             window.api.notifyCalibration(baseline);
+            setCalibrationState('calibrated');
+            setTimeout(() => setCalibrationState('idle'), 2000);
+          } else {
+            alert('Failed to compute calibration baseline.');
+            setCalibrationState('idle');
           }
+        } else {
+          setCalibrationState('idle');
         }
-        setCalibrationState('calibrated');
-        setTimeout(() => setCalibrationState('idle'), 2000);
       }
     }, 1000);
   };
@@ -196,26 +213,16 @@ const Dashboard = () => {
   if (isPaused) {
     // Hidden from top text, shown in overlay
   } else if (isCalibrated && signals && score !== null && score < 60) {
-    const badSignals = [];
-    if (!signals.head.ok) badSignals.push({ type: 'head', severity: signals.head.delta / 0.08 });
-    if (!signals.shoulders.ok) badSignals.push({ type: 'shoulders', severity: signals.shoulders.delta / 0.08 });
-    if (!signals.distance.ok) {
-      const severity = signals.distance.tooClose ? signals.distance.delta / 0.10 : Math.abs(signals.distance.delta) / 0.15;
-      badSignals.push({ type: 'distance', severity, tooClose: signals.distance.tooClose, tooFar: signals.distance.tooFar });
-    }
+    const bad = [];
+    if (!signals.headDown.ok)    bad.push({ key: 'headDown',    delta: signals.headDown.delta,    msg: 'Lift your chin up 👆' });
+    if (!signals.distance.ok)    bad.push({ key: 'distance',    delta: 0.5,                       msg: signals.distance.tooClose ? 'Move away from the screen 🖥️' : 'Move closer to the screen' });
+    if (!signals.headForward.ok) bad.push({ key: 'headForward', delta: signals.headForward.delta, msg: 'Pull your head back 🐢' });
+    if (!signals.shoulders.ok)   bad.push({ key: 'shoulders',   delta: signals.shoulders.delta,   msg: 'Relax your shoulders 💪' });
+    if (!signals.headTilt.ok)    bad.push({ key: 'headTilt',    delta: signals.headTilt.delta,    msg: 'Level your head ↔️' });
 
-    if (badSignals.length > 0) {
-      badSignals.sort((a, b) => b.severity - a.severity);
-      const worst = badSignals[0];
-      
-      if (worst.type === 'head') {
-        alertMessage = "Lift your head up 👆";
-      } else if (worst.type === 'shoulders') {
-        alertMessage = "Relax your shoulders 💪";
-      } else if (worst.type === 'distance') {
-        if (worst.tooClose) alertMessage = "Move back from the screen 🖥️";
-        else if (worst.tooFar) alertMessage = "Move closer to the screen";
-      }
+    if (bad.length > 0) {
+      bad.sort((a, b) => b.delta - a.delta);
+      alertMessage = bad[0].msg;
     } else {
       alertMessage = "Fix your posture! 🪑";
     }
@@ -242,13 +249,13 @@ const Dashboard = () => {
       `}</style>
       
       {error && (
-        <div style={{ position: 'absolute', top: '20px', zIndex: 10, color: '#f44336', backgroundColor: '#ffebee', padding: '15px', borderRadius: '8px' }}>
+        <div style={{ position: 'absolute', top: '20px', zIndex: 10, backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '15px', color: 'red', fontWeight: 'bold' }}>
           {error}
         </div>
       )}
 
       {!isLoaded && !error && (
-        <div style={{ position: 'absolute', top: '20px', zIndex: 10, color: '#61dafb', backgroundColor: '#1e1e1e', padding: '15px', borderRadius: '8px' }}>
+        <div style={{ position: 'absolute', top: '20px', zIndex: 10, backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '15px', fontWeight: 'bold' }}>
           Loading AI model...
         </div>
       )}
@@ -287,67 +294,75 @@ const Dashboard = () => {
         )}
 
         {isPaused && (
-          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', backgroundColor: 'rgba(0,0,0,0.7)', padding: '20px 40px', borderRadius: '12px', fontSize: '24px', fontWeight: 'bold', color: 'white' }}>
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-lg)', padding: '20px 40px', fontSize: '24px', fontWeight: 'bold', color: 'var(--black)', fontFamily: "'Instrument Serif', serif" }}>
             Detection Paused
           </div>
         )}
       </div>
 
       {/* User info card (top left) */}
-      <div style={{ position: 'absolute', top: '20px', left: '20px', backgroundColor: 'white', borderRadius: '12px', padding: '15px', display: 'flex', alignItems: 'center', gap: '15px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 5 }}>
-        <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#ffe0e0', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px' }}>
+      <div style={{ position: 'absolute', top: '20px', left: '20px', backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '15px', display: 'flex', alignItems: 'center', gap: '15px', zIndex: 5 }}>
+        <div style={{ width: '40px', height: '40px', backgroundColor: 'var(--accent)', border: 'var(--border)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px' }}>
           🦐
         </div>
         <div>
-          <div style={{ color: '#121212', fontWeight: 'bold', fontSize: '16px' }}>{userData.username}</div>
-          <div style={{ color: '#7a7a7a', fontSize: '12px', marginBottom: '4px' }}>lvl {userData.level}</div>
-          <div style={{ width: '100px', height: '6px', backgroundColor: '#e0e0e0', borderRadius: '3px', overflow: 'hidden' }}>
-            <div style={{ width: `${(userData.xp / nextThreshold) * 100}%`, height: '100%', backgroundColor: '#4caf50' }} />
+          <div style={{ color: 'var(--black)', fontWeight: 'bold', fontSize: '16px', fontFamily: "'Space Grotesk', sans-serif" }}>{userData.username}</div>
+          <div style={{ color: 'var(--muted)', fontSize: '12px', marginBottom: '4px', fontWeight: 'bold' }}>LVL {userData.level}</div>
+          <div style={{ width: '100px', height: '10px', backgroundColor: 'var(--cream)', border: 'var(--border)' }}>
+            <div style={{ width: `${(userData.xp / nextThreshold) * 100}%`, height: '100%', backgroundColor: 'var(--black)' }} />
           </div>
-          <div style={{ color: '#7a7a7a', fontSize: '10px', marginTop: '4px' }}>{userData.xp} / {nextThreshold} XP</div>
+          <div style={{ color: 'var(--muted)', fontSize: '10px', marginTop: '4px', fontWeight: 'bold' }}>{userData.xp} / {nextThreshold} XP</div>
         </div>
       </div>
 
       {/* Posture breakdown panel (top right) */}
-      <div style={{ position: 'absolute', top: '20px', right: '20px', backgroundColor: 'white', borderRadius: '12px', padding: '20px', width: '220px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 5, color: '#121212' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px' }}>
-          <span>Head</span>
-          <span>{(!isCalibrated || !signals || isPaused) ? '—' : (signals.head.ok ? '✅' : '❌')}</span>
+      <div style={{ position: 'absolute', top: '20px', right: '20px', backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '20px', width: '220px', zIndex: 5, color: 'var(--black)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px', fontWeight: 'bold' }}>
+          <span>Head Forward</span>
+          <span>{(!isCalibrated || !signals || isPaused) ? '—' : (signals.headForward.ok ? '✅' : '❌')}</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px', fontWeight: 'bold' }}>
+          <span>Head Down</span>
+          <span>{(!isCalibrated || !signals || isPaused) ? '—' : (signals.headDown.ok ? '✅' : '❌')}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px', fontWeight: 'bold' }}>
+          <span>Head Tilt</span>
+          <span>{(!isCalibrated || !signals || isPaused) ? '—' : (signals.headTilt.ok ? '✅' : '❌')}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px', fontWeight: 'bold' }}>
           <span>Shoulders</span>
           <span>{(!isCalibrated || !signals || isPaused) ? '—' : (signals.shoulders.ok ? '✅' : '❌')}</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', fontSize: '14px' }}>
-          <span>Screen distance</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', fontSize: '14px', fontWeight: 'bold' }}>
+          <span>Distance</span>
           <span>
             {(!isCalibrated || !signals || isPaused) ? '—' : (
-              signals.distance.ok ? 'Good ✅' : (signals.distance.tooClose ? 'Too close ❌' : 'Too far ❌')
+              signals.distance.ok ? 'Good ✅' : (signals.distance.tooClose ? 'Close ❌' : 'Far ❌')
             )}
           </span>
         </div>
         
-        <div style={{ borderTop: '1px solid #eee', paddingTop: '15px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ borderTop: 'var(--border)', paddingTop: '15px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontWeight: 'bold', fontSize: '14px' }}>SCORE:</span>
-          <span style={{ fontSize: '32px', fontWeight: 'bold', color: isPaused ? '#888' : scoreColor }}>
+          <span style={{ fontSize: '36px', fontFamily: "'Instrument Serif', serif", color: isPaused ? 'var(--muted)' : 'var(--black)' }}>
             {(score !== null && !isPaused) ? score : '—'}
           </span>
         </div>
 
         {calibrationState === 'idle' && !isCalibrated && (
-          <div style={{ fontSize: '12px', color: '#ff9800', textAlign: 'center', marginBottom: '10px', animation: 'pulse 1.5s infinite' }}>
-            Sit up straight, then click Calibrate
+          <div style={{ fontSize: '12px', color: 'var(--black)', backgroundColor: 'var(--accent)', border: 'var(--border)', padding: '5px', textAlign: 'center', marginBottom: '10px', animation: 'pulse 1.5s infinite', fontWeight: 'bold' }}>
+            Sit up straight, then calibrate
           </div>
         )}
         
         {calibrationState === 'counting' && (
-          <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#2196f3', textAlign: 'center', marginBottom: '10px' }}>
+          <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--black)', backgroundColor: 'var(--white)', border: 'var(--border)', padding: '5px', textAlign: 'center', marginBottom: '10px' }}>
             Calibrating in {countdown}...
           </div>
         )}
 
         {calibrationState === 'calibrated' && (
-          <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#4caf50', textAlign: 'center', marginBottom: '10px' }}>
+          <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--black)', backgroundColor: 'var(--accent)', border: 'var(--border)', padding: '5px', textAlign: 'center', marginBottom: '10px' }}>
             Calibrated ✓
           </div>
         )}
@@ -355,25 +370,19 @@ const Dashboard = () => {
         <button 
           onClick={startCalibration}
           disabled={!isLoaded || !isReady || !latestKeypointsRef.current || calibrationState === 'counting' || isPaused}
+          className="neo-btn"
           style={{
             width: '100%',
-            padding: '10px',
-            backgroundColor: 'white',
-            color: '#2196f3',
-            border: '1px solid #2196f3',
-            borderRadius: '8px',
-            fontWeight: 'bold',
-            cursor: (!isLoaded || !isReady || !latestKeypointsRef.current || calibrationState === 'counting' || isPaused) ? 'not-allowed' : 'pointer',
             opacity: (!isLoaded || !isReady || !latestKeypointsRef.current || calibrationState === 'counting' || isPaused) ? 0.5 : 1
           }}
         >
-          {isCalibrated ? 'Recalibrate' : 'Calibrate'}
+          {isCalibrated ? 'RECALIBRATE' : 'CALIBRATE'}
         </button>
       </div>
 
       {/* Alert text overlay */}
       {alertMessage && (
-        <div style={{ position: 'absolute', top: '40px', left: '50%', transform: 'translateX(-50%)', color: 'white', fontSize: '24px', fontWeight: 'bold', textShadow: '0px 2px 10px rgba(0,0,0,0.8)', zIndex: 5, textAlign: 'center', width: '100%' }}>
+        <div style={{ position: 'absolute', top: '40px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '15px 30px', color: 'var(--black)', fontSize: '28px', fontFamily: "'Instrument Serif', serif", zIndex: 5, textAlign: 'center' }}>
           {alertMessage}
         </div>
       )}
@@ -382,18 +391,18 @@ const Dashboard = () => {
       {!isPaused && (
         <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 5 }}>
           {alertActive ? (
-            <div style={{ backgroundColor: '#f44336', color: 'white', padding: '6px 16px', borderRadius: '20px', fontSize: '14px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>Alert active</div>
+            <div style={{ backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-sm)', color: 'red', padding: '6px 16px', fontSize: '14px', fontWeight: 'bold' }}>ALERT ACTIVE</div>
           ) : cooldownActive ? (
-            <div style={{ backgroundColor: '#7a7a7a', color: 'white', padding: '6px 16px', borderRadius: '20px', fontSize: '14px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>Cooldown</div>
+            <div style={{ backgroundColor: 'var(--gray)', border: 'var(--border)', boxShadow: 'var(--shadow-sm)', color: 'var(--muted)', padding: '6px 16px', fontSize: '14px', fontWeight: 'bold' }}>COOLDOWN</div>
           ) : (
-            <div style={{ backgroundColor: '#4caf50', color: 'white', padding: '6px 16px', borderRadius: '20px', fontSize: '14px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>Monitoring</div>
+            <div style={{ backgroundColor: 'var(--accent)', border: 'var(--border)', boxShadow: 'var(--shadow-sm)', color: 'var(--black)', padding: '6px 16px', fontSize: '14px', fontWeight: 'bold' }}>MONITORING</div>
           )}
         </div>
       )}
 
       {/* Camera label (bottom left) */}
       {cameraName && (
-        <div style={{ position: 'absolute', bottom: '20px', left: '20px', backgroundColor: 'rgba(0,0,0,0.6)', color: 'white', padding: '6px 12px', borderRadius: '16px', fontSize: '12px', zIndex: 5 }}>
+        <div style={{ position: 'absolute', bottom: '20px', left: '20px', backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-sm)', color: 'var(--black)', padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', zIndex: 5 }}>
           {cameraName}
         </div>
       )}
@@ -402,17 +411,10 @@ const Dashboard = () => {
       <div style={{ position: 'absolute', bottom: '20px', right: '20px', display: 'flex', gap: '10px', zIndex: 5 }}>
         <button 
           onClick={handlePauseToggle}
-          style={{ width: '44px', height: '44px', borderRadius: '50%', backgroundColor: 'rgba(0,0,0,0.6)', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px' }}
+          style={{ width: '44px', height: '44px', backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-sm)', color: 'var(--black)', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px' }}
           title={isPaused ? "Resume Detection" : "Pause Detection"}
         >
           {isPaused ? '▶' : '⏸'}
-        </button>
-        <button 
-          onClick={navigateToSettings}
-          style={{ width: '44px', height: '44px', borderRadius: '50%', backgroundColor: 'rgba(0,0,0,0.6)', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px' }}
-          title="Settings"
-        >
-          ⚙️
         </button>
       </div>
 

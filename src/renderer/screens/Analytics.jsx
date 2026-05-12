@@ -289,20 +289,20 @@ const Analytics = () => {
   const nextThreshold = XP_THRESHOLDS[levelIndex + 1] || XP_THRESHOLDS[XP_THRESHOLDS.length - 1];
 
   return (
-    <div style={{ padding: '30px', color: 'white', maxWidth: '800px', margin: '0 auto', height: '100%', overflowY: 'auto' }}>
-      <h2 style={{ color: '#61dafb', marginBottom: '20px' }}>Analytics</h2>
+    <div style={{ padding: '30px', color: 'var(--black)', maxWidth: '800px', margin: '0 auto', height: '100%', overflowY: 'auto', fontFamily: "'Space Grotesk', sans-serif" }}>
+      <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: '48px', marginBottom: '30px', margin: '0 0 20px 0' }}>Analytics</h2>
       
       {sessions.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '50px', backgroundColor: '#1a1a1a', borderRadius: '12px' }}>
+        <div style={{ textAlign: 'center', padding: '50px', backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)' }}>
           <h3>No data yet.</h3>
           <p>Start a session to see your analytics!</p>
         </div>
       ) : (
         <>
           <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-            <button onClick={() => setTab('today')} style={tab === 'today' ? activeTabBtn : tabBtn}>Today</button>
-            <button onClick={() => setTab('week')} style={tab === 'week' ? activeTabBtn : tabBtn}>Week</button>
-            <button onClick={() => setTab('month')} style={tab === 'month' ? activeTabBtn : tabBtn}>Month</button>
+            <button onClick={() => setTab('today')} className="neo-btn" style={tab === 'today' ? activeTabBtn : tabBtn}>TODAY</button>
+            <button onClick={() => setTab('week')} className="neo-btn" style={tab === 'week' ? activeTabBtn : tabBtn}>WEEK</button>
+            <button onClick={() => setTab('month')} className="neo-btn" style={tab === 'month' ? activeTabBtn : tabBtn}>MONTH</button>
           </div>
 
           {tab === 'today' && renderTodayStats()}
@@ -310,31 +310,31 @@ const Analytics = () => {
           {tab === 'month' && renderMonthStats()}
 
           {tab !== 'month' && (
-            <div style={{ backgroundColor: '#1a1a1a', padding: '20px', borderRadius: '12px', height: '300px', marginBottom: '30px' }}>
+            <div style={{ backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '20px', height: '300px', marginBottom: '30px' }}>
               <canvas ref={canvasRef}></canvas>
             </div>
           )}
 
           {tab === 'month' && (
-            <div style={{ backgroundColor: '#1a1a1a', padding: '20px', borderRadius: '12px', marginBottom: '30px' }}>
+            <div style={{ backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '20px', marginBottom: '30px' }}>
               {renderMonthCalendar()}
             </div>
           )}
         </>
       )}
 
-      <h3 style={{ color: '#61dafb', borderTop: '1px solid #333', paddingTop: '20px', marginTop: '20px' }}>Your Progress</h3>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', backgroundColor: '#1a1a1a', padding: '20px', borderRadius: '12px' }}>
-        <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#4caf50', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', fontWeight: 'bold' }}>
+      <h3 style={{ fontFamily: "'Instrument Serif', serif", fontSize: '36px', borderTop: 'var(--border)', paddingTop: '20px', marginTop: '20px', marginBottom: '20px' }}>Your Progress</h3>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '20px' }}>
+        <div style={{ width: '80px', height: '80px', backgroundColor: 'var(--accent)', border: 'var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', fontWeight: 'bold' }}>
           <span style={{ fontSize: '12px' }}>LVL</span>
-          <span style={{ fontSize: '32px' }}>{xpData.level}</span>
+          <span style={{ fontSize: '32px', fontFamily: "'Instrument Serif', serif" }}>{xpData.level}</span>
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '10px' }}>{currentTitle}</div>
-          <div style={{ width: '100%', height: '10px', backgroundColor: '#333', borderRadius: '5px', overflow: 'hidden' }}>
-            <div style={{ width: `${Math.min(100, (xpData.total / nextThreshold) * 100)}%`, height: '100%', backgroundColor: '#2196f3' }}></div>
+          <div style={{ width: '100%', height: '10px', backgroundColor: 'var(--cream)', border: 'var(--border)', overflow: 'hidden' }}>
+            <div style={{ width: `${Math.min(100, (xpData.total / nextThreshold) * 100)}%`, height: '100%', backgroundColor: 'var(--black)' }}></div>
           </div>
-          <div style={{ fontSize: '12px', color: '#aaa', marginTop: '5px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '5px', fontWeight: 'bold' }}>
             {xpData.total} / {nextThreshold} XP to Level {xpData.level + 1}
           </div>
         </div>
@@ -344,13 +344,13 @@ const Analytics = () => {
 };
 
 // Styles
-const tabBtn = { padding: '8px 16px', backgroundColor: '#333', color: 'white', border: 'none', borderRadius: '20px', cursor: 'pointer' };
-const activeTabBtn = { ...tabBtn, backgroundColor: '#2196f3' };
-const cardStyle = { flex: 1, backgroundColor: '#1a1a1a', padding: '15px', borderRadius: '12px', textAlign: 'center' };
-const cardTitle = { fontSize: '14px', color: '#aaa', marginBottom: '5px' };
-const cardVal = { fontSize: '24px', fontWeight: 'bold' };
-const calHeader = { textAlign: 'center', fontSize: '12px', color: '#aaa', paddingBottom: '10px' };
-const calCell = { aspectRatio: '1', display: 'flex', justifyContent: 'center', alignItems: 'center', borderRadius: '4px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer' };
-const calCellEmpty = { ...calCell, backgroundColor: 'transparent' };
+const tabBtn = { backgroundColor: 'var(--white)', color: 'var(--black)' };
+const activeTabBtn = { backgroundColor: 'var(--accent)', color: 'var(--black)' };
+const cardStyle = { flex: 1, backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-sm)', padding: '15px', textAlign: 'center' };
+const cardTitle = { fontSize: '14px', color: 'var(--muted)', marginBottom: '5px', fontWeight: 'bold', textTransform: 'uppercase' };
+const cardVal = { fontSize: '32px', fontFamily: "'Instrument Serif', serif" };
+const calHeader = { textAlign: 'center', fontSize: '12px', color: 'var(--muted)', paddingBottom: '10px', fontWeight: 'bold' };
+const calCell = { aspectRatio: '1', display: 'flex', justifyContent: 'center', alignItems: 'center', border: 'var(--border)', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer', color: 'var(--black)' };
+const calCellEmpty = { ...calCell, border: 'none', backgroundColor: 'transparent' };
 
 export default Analytics;

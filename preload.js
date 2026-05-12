@@ -20,5 +20,10 @@ contextBridge.exposeInMainWorld('api', {
   getXP: () => ipcRenderer.invoke('xp:get'),
   addXP: (amount) => ipcRenderer.invoke('xp:add', amount),
   validateLicense: (key) => ipcRenderer.invoke('license:validate', key),
-  getLicense: () => ipcRenderer.invoke('store:get', 'licenseKey')
+  getLicense: () => ipcRenderer.invoke('store:get', 'licenseKey'),
+  onUpdateAvailable: (cb) => ipcRenderer.on('update:available', (_, info) => cb(info)),
+  onUpdateProgress: (cb) => ipcRenderer.on('update:progress', (_, pct) => cb(pct)),
+  onUpdateReady: (cb) => ipcRenderer.on('update:ready', () => cb()),
+  downloadUpdate: () => ipcRenderer.invoke('update:download'),
+  installUpdate: () => ipcRenderer.invoke('update:install')
 });

@@ -1,0 +1,87 @@
+appId: io.posturepal.app
+productName: PosturePal
+copyright: Copyright © 2025 PosturePal
+
+directories:
+  output: release
+  buildResources: assets/build
+
+files:
+  - dist/**/*
+  - main.js
+  - preload.js
+  - src/renderer/alert.html
+  - src/renderer/background.html
+  - package.json
+  - node_modules/**/*
+
+extraResources:
+  - from: assets/
+    to: assets/
+    filter:
+      - "**/*"
+
+# ── macOS ──
+mac:
+  category: public.app-category.healthcare-fitness
+  icon: assets/build/icon.icns
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: assets/build/entitlements.mac.plist
+  entitlementsInherit: assets/build/entitlements.mac.plist
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+
+dmg:
+  title: PosturePal
+  icon: assets/build/icon.icns
+  window:
+    width: 540
+    height: 380
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+# ── Windows ──
+win:
+  icon: assets/build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+  certificateSubjectName: ${env.WIN_CERT_SUBJECT}
+  signingHashAlgorithms: [sha256]
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: assets/build/icon.ico
+  uninstallerIcon: assets/build/icon.ico
+  installerHeader: assets/build/installer-header.bmp
+  license: assets/build/license.txt
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: PosturePal
+
+# ── Linux ──
+linux:
+  icon: assets/build/icons/
+  category: Utility
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+
+# ── Auto-updater (GitHub Releases) ──
+publish:
+  provider: github
+  owner: Maan-Teckwani
+  repo: posturepal-releases
+  private: false

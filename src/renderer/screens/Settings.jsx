@@ -29,11 +29,11 @@ const Settings = () => {
   };
 
   return (
-    <div style={{ padding: '40px', maxWidth: '600px', margin: '0 auto', color: '#fff', boxSizing: 'border-box' }}>
-      <h2 style={{ marginBottom: '40px', color: '#61dafb' }}>Settings</h2>
+    <div style={{ padding: '40px', maxWidth: '600px', margin: '0 auto', color: 'var(--black)', boxSizing: 'border-box', fontFamily: "'Space Grotesk', sans-serif" }}>
+      <h2 style={{ marginBottom: '40px', fontFamily: "'Instrument Serif', serif", fontSize: '48px' }}>Settings</h2>
 
-      <div style={{ marginBottom: '30px', display: 'flex', flexDirection: 'column' }}>
-        <label style={{ marginBottom: '10px', fontSize: '16px', color: '#e0e0e0', display: 'flex', alignItems: 'center' }}>
+      <div style={{ marginBottom: '30px', backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '20px', display: 'flex', flexDirection: 'column' }}>
+        <label style={{ marginBottom: '10px', fontSize: '16px', color: 'var(--black)', display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
           <input 
             type="checkbox" 
             checked={settings.runOnStartup}
@@ -43,15 +43,15 @@ const Settings = () => {
                 window.api.setLoginItem(e.target.checked);
               }
             }}
-            style={{ marginRight: '10px', cursor: 'pointer', width: '16px', height: '16px' }}
+            style={{ marginRight: '10px', cursor: 'pointer', width: '20px', height: '20px', accentColor: 'var(--accent)' }}
           />
           Run on system startup
         </label>
       </div>
       
-      <div style={{ marginBottom: '30px', display: 'flex', flexDirection: 'column' }}>
-        <label style={{ marginBottom: '10px', fontSize: '16px', color: '#e0e0e0' }}>
-          Alert me when score drops below <strong>{settings.threshold}</strong>
+      <div style={{ marginBottom: '30px', backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '20px', display: 'flex', flexDirection: 'column' }}>
+        <label style={{ marginBottom: '10px', fontSize: '16px', color: 'var(--black)', fontWeight: 'bold' }}>
+          Alert me when score drops below <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: '24px' }}>{settings.threshold}</span>
         </label>
         <input 
           type="range" 
@@ -59,13 +59,13 @@ const Settings = () => {
           max="80" 
           value={settings.threshold} 
           onChange={(e) => handleChange('threshold', Number(e.target.value))}
-          style={{ width: '100%', cursor: 'pointer' }}
+          style={{ width: '100%', cursor: 'pointer', accentColor: 'var(--black)' }}
         />
       </div>
 
-      <div style={{ marginBottom: '30px', display: 'flex', flexDirection: 'column' }}>
-        <label style={{ marginBottom: '10px', fontSize: '16px', color: '#e0e0e0' }}>
-          Alert after <strong>{settings.alertDelay}</strong> seconds of bad posture
+      <div style={{ marginBottom: '30px', backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '20px', display: 'flex', flexDirection: 'column' }}>
+        <label style={{ marginBottom: '10px', fontSize: '16px', color: 'var(--black)', fontWeight: 'bold' }}>
+          Alert after <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: '24px' }}>{settings.alertDelay}</span> seconds of bad posture
         </label>
         <input 
           type="range" 
@@ -73,13 +73,13 @@ const Settings = () => {
           max="15" 
           value={settings.alertDelay} 
           onChange={(e) => handleChange('alertDelay', Number(e.target.value))}
-          style={{ width: '100%', cursor: 'pointer' }}
+          style={{ width: '100%', cursor: 'pointer', accentColor: 'var(--black)' }}
         />
       </div>
 
-      <div style={{ marginBottom: '30px', display: 'flex', flexDirection: 'column' }}>
-        <label style={{ marginBottom: '10px', fontSize: '16px', color: '#e0e0e0' }}>
-          Wait <strong>{settings.cooldown}</strong>s before next alert
+      <div style={{ marginBottom: '30px', backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '20px', display: 'flex', flexDirection: 'column' }}>
+        <label style={{ marginBottom: '10px', fontSize: '16px', color: 'var(--black)', fontWeight: 'bold' }}>
+          Wait <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: '24px' }}>{settings.cooldown}</span>s before next alert
         </label>
         <input 
           type="range" 
@@ -87,7 +87,7 @@ const Settings = () => {
           max="120" 
           value={settings.cooldown} 
           onChange={(e) => handleChange('cooldown', Number(e.target.value))}
-          style={{ width: '100%', cursor: 'pointer' }}
+          style={{ width: '100%', cursor: 'pointer', accentColor: 'var(--black)' }}
         />
       </div>
     </div>

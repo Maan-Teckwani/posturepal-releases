@@ -38,28 +38,29 @@ const License = ({ onActivated }) => {
   };
 
   return (
-    <div style={{ height: '100%', width: '100%', backgroundColor: 'black', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white' }}>
-      <h1 style={{ color: '#61dafb', marginBottom: '10px' }}>PosturePal 🦐</h1>
-      <p style={{ color: '#aaa', marginBottom: '40px' }}>Enter your license key to continue.</p>
+    <div style={{ height: '100%', width: '100%', backgroundColor: 'var(--cream)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'var(--black)', fontFamily: "'Space Grotesk', sans-serif" }}>
+      <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: '64px', marginBottom: '10px' }}>PosturePal 🦐</h1>
+      <p style={{ color: 'var(--muted)', marginBottom: '40px', fontWeight: 'bold' }}>Enter your license key to continue.</p>
       
-      <div style={{ backgroundColor: '#1a1a1a', padding: '40px', borderRadius: '12px', textAlign: 'center', width: '400px' }}>
+      <div style={{ backgroundColor: 'var(--white)', padding: '40px', border: 'var(--border)', boxShadow: 'var(--shadow-md)', textAlign: 'center', width: '400px' }}>
         <input 
           type="text" 
           value={key} 
           onChange={handleChange} 
           placeholder="XXXX-XXXX-XXXX-XXXX"
-          style={{ width: '100%', padding: '15px', fontSize: '20px', textAlign: 'center', letterSpacing: '2px', backgroundColor: '#333', border: '1px solid #555', color: 'white', borderRadius: '8px', outline: 'none', marginBottom: '20px', boxSizing: 'border-box' }}
+          style={{ width: '100%', padding: '15px', fontSize: '20px', textAlign: 'center', letterSpacing: '2px', backgroundColor: 'var(--white)', border: 'var(--border)', color: 'var(--black)', outline: 'none', marginBottom: '20px', boxSizing: 'border-box', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 'bold' }}
         />
         <button 
           onClick={handleActivate}
           disabled={status.loading || key.length < 19}
-          style={{ width: '100%', padding: '15px', fontSize: '16px', fontWeight: 'bold', backgroundColor: '#2196f3', color: 'white', border: 'none', borderRadius: '8px', cursor: (status.loading || key.length < 19) ? 'not-allowed' : 'pointer', opacity: (status.loading || key.length < 19) ? 0.5 : 1, boxSizing: 'border-box' }}
+          className="neo-btn"
+          style={{ width: '100%', padding: '15px', fontSize: '16px', opacity: (status.loading || key.length < 19) ? 0.5 : 1, boxSizing: 'border-box', backgroundColor: 'var(--accent)', color: 'var(--black)' }}
         >
-          {status.loading ? 'Activating...' : 'Activate License'}
+          {status.loading ? 'ACTIVATING...' : 'ACTIVATE LICENSE'}
         </button>
 
         {status.message && (
-          <div style={{ marginTop: '20px', color: status.type === 'success' ? '#4caf50' : status.type === 'error' ? '#f44336' : '#61dafb' }}>
+          <div style={{ marginTop: '20px', fontWeight: 'bold', color: status.type === 'success' ? '#4caf50' : status.type === 'error' ? 'red' : 'var(--black)' }}>
             {status.message}
           </div>
         )}

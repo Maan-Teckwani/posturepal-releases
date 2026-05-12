@@ -3,9 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <title>PosturePal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      :root {
+        --black: #0a0a0a;
+        --white: #ffffff;
+        --cream: #f5f0e8;
+        --accent: #d4f57a;
+        --gray: #f0ece3;
+        --muted: #6b6660;
+        --border: 2px solid #0a0a0a;
+        --shadow-sm: 3px 3px 0px #0a0a0a;
+        --shadow-md: 5px 5px 0px #0a0a0a;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; 
+        padding: 0; 
+        font-family: 'Space Grotesk', sans-serif; 
+        background-color: var(--cream); 
+        color: var(--black);
+        overflow: hidden;
+      }
+      .neo-btn {
+        background: var(--black);
+        color: var(--white);
+        border: var(--border);
+        box-shadow: var(--shadow-sm);
+        padding: 10px 20px;
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.1s ease, box-shadow 0.1s ease;
+      }
+      .neo-btn:hover {
+        transform: translate(-2px, -2px);
+        box-shadow: var(--shadow-md);
+      }
+      .neo-btn:active {
+        transform: translate(2px, 2px);
+        box-shadow: none;
+      }
+      .neo-card {
+        background: var(--white);
+        border: var(--border);
+        box-shadow: var(--shadow-md);
+      }
+    </style>
 </head>
-<body style="margin: 0; padding: 0; font-family: sans-serif; background-color: #121212; color: #ffffff;">
+<body>
     <div id="root"></div>
     <script src="../../dist/bundle.js"></script>
 </body>

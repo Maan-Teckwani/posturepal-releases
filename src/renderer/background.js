@@ -40,8 +40,8 @@ function dist(a, b) {
   return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
 }
 
-function calculateRatios(kps) {
-  if (!kps) return null;
+function calculateRatios(kps, vWidth) {
+  if (!kps || !vWidth) return null;
   const nose = getKeypoint(kps, 'nose');
   const leftEar = getKeypoint(kps, 'left_ear');
   const rightEar = getKeypoint(kps, 'right_ear');
@@ -52,54 +52,78 @@ function calculateRatios(kps) {
 
   if (!nose || !leftEar || !rightEar || !leftEye || !rightEye || !leftShoulder || !rightShoulder) return null;
 
-  const minConfidence = 0.3;
-  if (nose.score < minConfidence || leftEar.score < minConfidence || rightEar.score < minConfidence || 
-      leftEye.score < minConfidence || rightEye.score < minConfidence || 
-      leftShoulder.score < minConfidence || rightShoulder.score < minConfidence) {
-    return null;
-  }
-
   const earMid = midpoint(leftEar, rightEar);
   const shoulderMid = midpoint(leftShoulder, rightShoulder);
   const shoulderWidth = dist(leftShoulder, rightShoulder);
-  const eyeDistance = dist(leftEye, rightEye);
+  const eyeDist = dist(leftEye, rightEye);
+  const faceWidth = dist(leftEar, rightEar);
 
-  if (shoulderWidth === 0) return null;
+  if (shoulderWidth === 0 || vWidth === 0) return null;
 
   return {
-    headForwardRatio: (earMid.x - shoulderMid.x) / shoulderWidth,
+    headForwardRatio: (shoulderMid.x - earMid.x) / shoulderWidth,
+    noseToShoulderRatio: (shoulderMid.y - nose.y) / shoulderWidth,
+    earTiltDelta: Math.abs(leftEar.y - rightEar.y) / shoulderWidth,
     neckRatio: (shoulderMid.y - earMid.y) / shoulderWidth,
-    distanceRatio: eyeDistance / shoulderWidth
+    faceToFrameRatio: faceWidth / vWidth,
+    distanceRatioB: eyeDist / shoulderWidth
   };
 }
 
-function scorePosture(keypoints) {
-  if (!keypoints || !baseline) return { score: null, signals: null };
-  const currentRatios = calculateRatios(keypoints);
+let scoreHistory = [];
+const HISTORY_SIZE = 4;
+
+function scorePosture(keypoints, videoWidth) {
+  if (!keypoints || !baseline || !videoWidth) return { score: null, signals: null };
+  const currentRatios = calculateRatios(keypoints, videoWidth);
   if (!currentRatios) return { score: null, signals: null };
   
-  const headDelta = Math.abs(currentRatios.headForwardRatio - baseline.headForwardRatio);
+  const distanceDeltaA = currentRatios.faceToFrameRatio - baseline.faceToFrameRatio;
+  const distanceDeltaB = currentRatios.distanceRatioB - baseline.distanceRatioB;
+  const tooClose = distanceDeltaA > 0.06 || distanceDeltaB > 0.07;
+  const tooFar = distanceDeltaA < -0.08 && distanceDeltaB < -0.06;
+  const distanceBad = tooClose;
+  
+  const headForwardDelta = Math.abs(currentRatios.headForwardRatio - baseline.headForwardRatio);
+  const headForwardBad = headForwardDelta > 0.09;
+
+  const headDownDelta = baseline.noseToShoulderRatio - currentRatios.noseToShoulderRatio;
+  const headDownBad = headDownDelta > 0.10;
+
+  const baseline_earTiltDelta = baseline.earTiltDelta || 0;
+  const headTiltBad = (currentRatios.earTiltDelta - baseline_earTiltDelta) > 0.06;
+
   const neckDelta = baseline.neckRatio - currentRatios.neckRatio;
-  const distanceDelta = currentRatios.distanceRatio - baseline.distanceRatio;
+  const shouldersBad = neckDelta > 0.08;
 
-  const headOk = headDelta <= 0.08;
-  const shouldersOk = neckDelta <= 0.08;
-  const tooClose = distanceDelta > 0.10;
-  const tooFar = distanceDelta < -0.15;
-  const distanceOk = !tooClose && !tooFar;
+  const headForwardScore = Math.min(100, Math.max(0, 100 - (headForwardDelta / 0.09) * 25));
+  const headDownScore    = Math.min(100, Math.max(0, 100 - (headDownDelta    / 0.10) * 30));
+  const headTiltScore    = Math.min(100, Math.max(0, 100 - (headTiltBad ? 20 : 0)));
+  const shouldersScore   = Math.min(100, Math.max(0, 100 - (neckDelta        / 0.08) * 25));
+  const distanceScore    = Math.min(100, Math.max(0, 100 - (distanceBad ? 30 : 0)));
 
-  const headScore = Math.max(0, Math.min(100, 100 - (headDelta / 0.08) * 40));
-  const neckScore = Math.max(0, Math.min(100, 100 - (neckDelta / 0.08) * 40));
-  const distanceScore = Math.max(0, Math.min(100, 100 - (distanceDelta / 0.10) * 20));
+  const rawScore = Math.round(
+    headForwardScore * 0.20 +
+    headDownScore    * 0.30 +
+    headTiltScore    * 0.10 +
+    shouldersScore   * 0.20 +
+    distanceScore    * 0.20
+  );
 
-  const finalScore = Math.round((headScore * 0.4) + (neckScore * 0.4) + (distanceScore * 0.2));
+  scoreHistory.push(rawScore);
+  if (scoreHistory.length > HISTORY_SIZE) {
+    scoreHistory.shift();
+  }
+  const smoothedScore = Math.round(scoreHistory.reduce((a, b) => a + b, 0) / scoreHistory.length);
 
   return {
-    score: finalScore,
+    score: smoothedScore,
     signals: {
-      head: { ok: headOk, delta: headDelta },
-      shoulders: { ok: shouldersOk, delta: neckDelta },
-      distance: { ok: distanceOk, delta: distanceDelta, tooClose, tooFar }
+      headForward: { ok: !headForwardBad, delta: headForwardDelta },
+      headDown:    { ok: !headDownBad,    delta: headDownDelta },
+      headTilt:    { ok: !headTiltBad,    delta: currentRatios.earTiltDelta },
+      shoulders:   { ok: !shouldersBad,   delta: neckDelta },
+      distance:    { ok: !distanceBad,    tooClose, tooFar, deltaA: distanceDeltaA, deltaB: distanceDeltaB }
     }
   };
 }
@@ -151,42 +175,51 @@ function runDetection() {
       return;
     }
 
-    const { score, signals } = scorePosture(poses[0].keypoints);
+    const { score, signals } = scorePosture(poses[0].keypoints, videoElement.videoWidth);
     lastRecordedScore = score;
     if (window.api) window.api.sendScore({ score, signals, isCalibrated: true, alertActive, cooldownActive });
 
     if (score === null) return;
 
-    if (score < settings.threshold) {
-      goodMs = 0;
-      if (!cooldownActive && !alertActive) {
+    const allGood = signals.headForward.ok && 
+                    signals.headDown.ok && 
+                    signals.headTilt.ok && 
+                    signals.shoulders.ok && 
+                    signals.distance.ok;
+
+    if (!alertActive) {
+      if (score < settings.threshold) {
         badMs += 500;
-      }
-      
-      const alertDelayMs = (settings.alertDelay || 3) * 1000;
-      if (badMs >= alertDelayMs && !alertActive && !cooldownActive) {
-        alertActive = true;
-        currentSession.alertsFired += 1;
-        if (window.api) window.api.showAlert({ score, signals });
+        const alertDelayMs = (settings.alertDelay || 3) * 1000;
         
-        cooldownActive = true;
-        setTimeout(() => {
-          cooldownActive = false;
-        }, (settings.cooldown || 60) * 1000);
-      } else if (alertActive) {
-        if (window.api) window.api.showAlert({ score, signals });
+        if (badMs >= alertDelayMs && !cooldownActive) {
+          alertActive = true;
+          currentSession.alertsFired += 1;
+          if (window.api) window.api.showAlert({ score, signals });
+          
+          cooldownActive = true;
+          setTimeout(() => {
+            cooldownActive = false;
+          }, (settings.cooldown || 60) * 1000);
+        }
+      } else {
+        badMs = 0;
       }
     } else {
-      badMs = 0;
-      if (alertActive) {
+      // Alert is currently active
+      if (window.api) window.api.showAlert({ score, signals });
+
+      if (allGood) {
         goodMs += 500;
-        if (window.api) window.api.showAlert({ score, signals });
         if (goodMs >= 3000) {
           if (window.api) window.api.hideAlert();
           alertActive = false;
           goodMs = 0;
+          badMs = 0;
           if (window.api.addXP) window.api.addXP(25);
         }
+      } else {
+        goodMs = 0;
       }
     }
   }, 500);
