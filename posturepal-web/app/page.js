@@ -89,7 +89,7 @@ export default function Home() {
       </nav>
 
       {/* HERO SECTION */}
-      <section className="bg-cream" style={{ padding: '50px 0 120px 0', display: 'flex', alignItems: 'center' }}>
+      <section className="bg-cream" style={{ padding: '20px 0 80px 0', display: 'flex', alignItems: 'center' }}>
         <div className="container" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
           <div style={{ flex: '1 1 55%', paddingRight: '60px', minWidth: '300px' }}>
             <div className="neo-tag fade-up">YOUR NECK ASKED US TO INTERVENE</div>
@@ -116,7 +116,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div style={{ flex: '1 1 45%', minWidth: '300px', display: 'flex', justifyContent: 'center', marginTop: '10px', marginBottom: '60px' }}>
+          <div style={{ flex: '1 1 45%', minWidth: '300px', display: 'flex', justifyContent: 'center', marginTop: '0', marginBottom: '40px' }}>
             <div style={{ animation: 'float 4s ease-in-out infinite', width: '100%', maxWidth: '380px' }}>
               <div className="neo-card" style={{ width: '100%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: '0' }}>
                 <div style={{ padding: '16px', borderBottom: '2px solid var(--black)', display: 'flex', alignItems: 'center', gap: '12px' }}>
