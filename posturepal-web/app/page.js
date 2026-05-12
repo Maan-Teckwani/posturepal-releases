@@ -561,7 +561,7 @@ export default function Home() {
           <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.15)', margin: '60px 0 40px' }} />
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-            <div style={{ fontWeight: 700, fontSize: '16px' }}>PosturePal 🦐</div>
+            <div style={{ fontWeight: 700, fontSize: '16px' }}>PosturePal</div>
             <div style={{ display: 'flex', gap: '24px', fontSize: '14px' }}>
               <a href="#benefits" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>Benefits</a>
               <a href="#intervention" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>The Chat</a>
@@ -569,7 +569,7 @@ export default function Home() {
               <a href="#pricing" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>Waitlist</a>
               <a href="#faq" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>FAQ</a>
             </div>
-            <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>© 2025 PosturePal</div>
+            <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>© 2026 PosturePal</div>
           </div>
         </div>
       </section>
