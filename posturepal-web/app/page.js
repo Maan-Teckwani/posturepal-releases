@@ -147,7 +147,7 @@ export default function Home() {
       </nav>
 
       {/* HERO SECTION */}
-      <section className="bg-cream" style={{ padding: '80px 0 0 0', minHeight: '90vh', display: 'flex', alignItems: 'center' }}>
+      <section className="bg-cream" style={{ padding: '50px 0 120px 0', display: 'flex', alignItems: 'center' }}>
         <div className="container" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
           <div style={{ flex: '1 1 55%', paddingRight: '60px', minWidth: '300px' }}>
             <div className="neo-tag fade-up">YOUR NECK ASKED US TO INTERVENE</div>

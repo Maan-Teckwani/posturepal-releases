@@ -157,7 +157,7 @@ Baseline is saved locally and persists forever (or until you recalibrate).
 - **Framework:** Next.js 14
 - **Hosting:** Vercel
 - **Database:** Supabase (PostgreSQL)
-- **Payments:** Stripe
+- **Payments:** Razorpay
 - **Email:** Resend
 
 ### Monitoring
@@ -200,7 +200,7 @@ posturepal-web/                      ← Website & backend
 │   ├── page.js                      ← Landing page
 │   ├── globals.css                  ← Design system
 │   └── api/
-│       ├── stripe-webhook/          ← Payment handler
+│       ├── razorpay-webhook/        ← Payment handler
 │       └── validate-license/        ← License check
 ├── package.json
 └── .env.local                       ← API keys (not in repo)
@@ -416,10 +416,10 @@ Source code: Licensed for internal use and contributions only. See LICENSE file.
 - ✅ System tray integration
 - ✅ Cross-platform (Mac, Windows, Linux)
 - ✅ Auto-updater via GitHub Releases
-- ✅ Stripe payments + license keys
+- ✅ Razorpay payments + license keys
 
 ---
 
 **Your spine will thank you. Get PosturePal for $17 at [posturepal](https://posturepal-sigma.vercel.app/)**
 
-🦐 Stop sitting like a shrimp.
+Stop sitting like a shrimp.
