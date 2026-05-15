@@ -2,24 +2,139 @@
 
 import React, { useState, useEffect } from 'react';
 
-const RazorpayButton = ({ amount = 299, buttonText = "Buy Now →" }) => {
-  const handlePayment = () => {
-    window.open(process.env.NEXT_PUBLIC_RAZORPAY_LINK || 'https://rzp.io/l/YOUR_RAZORPAY_LINK', '_blank');
+const RazorpayButton = ({ amount = 349, buttonText = "Buy Now →" }) => {
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const loadRazorpayScript = () => new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') {
+      return reject(new Error('Browser environment required.'));
+    }
+
+    if (window.Razorpay) {
+      return resolve(true);
+    }
+
+    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(true));
+      existing.addEventListener('error', () => reject(new Error('Failed to load Razorpay script.')));
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => reject(new Error('Failed to load Razorpay script.'));
+    document.body.appendChild(script);
+  });
+
+  const handlePayment = async () => {
+    setError(null);
+    setLoading(true);
+
+    try {
+      await loadRazorpayScript();
+
+      const amountPaise = Math.round(amount * 100);
+      const createOrderResponse = await fetch('/api/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: amountPaise })
+      });
+
+      if (!createOrderResponse.ok) {
+        const errorBody = await createOrderResponse.json().catch(() => null);
+        throw new Error(errorBody?.error || 'Unable to create payment order.');
+      }
+
+      const order = await createOrderResponse.json();
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: order.amount,
+        currency: order.currency,
+        name: 'PosturePal',
+        description: 'PosturePal Lifetime License',
+        order_id: order.order_id,
+        prefill: {
+          email: ''
+        },
+        theme: {
+          color: '#000000'
+        },
+        modal: {
+          ondismiss: () => {
+            setError('Payment cancelled. You can try again anytime.');
+            setLoading(false);
+          }
+        },
+        handler: async function (response) {
+          setError(null);
+          try {
+            const verifyResponse = await fetch('/api/verify-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature
+              })
+            });
+
+            if (!verifyResponse.ok) {
+              const verifyBody = await verifyResponse.json().catch(() => null);
+              throw new Error(verifyBody?.message || 'Payment could not be verified.');
+            }
+
+            const verifyData = await verifyResponse.json();
+            if (!verifyData.success) {
+              throw new Error(verifyData.message || 'Payment verification failed.');
+            }
+
+            window.location.href = '/success';
+          } catch (verifyError) {
+            setError(verifyError.message || 'Payment verification failed.');
+            setLoading(false);
+          }
+        }
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.on('payment.failed', function (failure) {
+        setError('Payment failed. Please try again.');
+        setLoading(false);
+      });
+
+      razorpay.open();
+    } catch (err) {
+      setError(err?.message || 'Unable to start Razorpay checkout.');
+      setLoading(false);
+    }
   };
 
   return (
-    <button
-      onClick={handlePayment}
-      className="neo-btn accent"
-      style={{
-        fontSize: '16px',
-        padding: '16px 32px',
-        whiteSpace: 'nowrap',
-        cursor: 'pointer'
-      }}
-    >
-      {buttonText}
-    </button>
+    <>
+      <button
+        onClick={handlePayment}
+        className="neo-btn accent"
+        style={{
+          fontSize: '16px',
+          padding: '16px 32px',
+          whiteSpace: 'nowrap',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          opacity: loading ? 0.7 : 1
+        }}
+        disabled={loading}
+      >
+        {loading ? 'Processing…' : buttonText}
+      </button>
+      {error ? (
+        <div style={{ marginTop: '12px', color: '#b91c1c', fontSize: '14px', maxWidth: '420px' }}>
+          {error}
+        </div>
+      ) : null}
+    </>
   );
 };
 
@@ -82,19 +197,19 @@ export default function Home() {
           </div>
           <div className="nav-links">
             <a href="#pricing" className="neo-btn" style={{ fontSize: '13px', padding: '10px 20px', background: 'var(--accent)', color: 'var(--black)' }}>
-              Buy Now — Rs. 299
+              Buy Now — Rs. 349
             </a>
           </div>
         </div>
       </nav>
 
       {/* HERO SECTION */}
-      <section className="bg-cream" style={{ padding: '20px 0 80px 0', display: 'flex', alignItems: 'center' }}>
+      <section className="bg-cream" style={{ padding: '20px 90px 80px 40px', display: 'flex', alignItems: 'center' }}>
         <div className="container" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
-          <div style={{ flex: '1 1 55%', paddingRight: '60px', minWidth: '300px' }}>
+          <div style={{ flex: '1 1 55%', paddingRight: '60px', minWidth: '300px', paddingTop: '30px' }}>
             <div className="neo-tag fade-up">YOUR NECK ASKED US TO INTERVENE</div>
-            <h1 className="fade-up fade-up-delay-1" style={{ fontSize: '76px', margin: '20px 0 0 0', lineHeight: 1.1 }}>Your spine has a group chat.</h1>
-            <div className="fade-up fade-up-delay-1" style={{ fontSize: '40px', fontFamily: 'Instrument Serif', fontStyle: 'italic', marginBottom: '20px', fontWeight: 400 }}>It's not looking good in there.</div>
+            <h1 className="fade-up fade-up-delay-1" style={{ fontSize: '70px', margin: '1px 0 0 0', lineHeight: 1.1 }}>Your spine has a group chat.</h1>
+            <div className="fade-up fade-up-delay-1" style={{ fontSize: '30px', fontFamily: 'Instrument Serif', fontStyle: 'italic', marginBottom: '20px', fontWeight: 400, marginTop: '10px' }}>It's not looking good in there.</div>
             <p className="fade-up fade-up-delay-2" style={{ fontSize: '18px', color: 'var(--muted)', maxWidth: '480px', marginBottom: '32px' }}>
               PosturePal uses your webcam and on-device AI to catch you slouching before your body files a formal complaint.
               <strong> One-time payment. Your spine will stop yelling.</strong>
@@ -102,11 +217,11 @@ export default function Home() {
 
             <div className="fade-up fade-up-delay-3" style={{ maxWidth: '420px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
-                <span style={{ fontSize: '36px', fontWeight: 700, fontFamily: 'Instrument Serif' }}>Rs. 299</span>
-                <span style={{ fontSize: '14px', color: 'var(--muted)', textDecoration: 'line-through', fontWeight: 600 }}>Rs. 599</span>
-                <span style={{ background: 'var(--accent)', border: '2px solid var(--black)', padding: '2px 8px', fontSize: '11px', fontWeight: 700 }}>LIFETIME</span>
+                <span style={{ fontSize: '36px', fontWeight: 700, fontFamily: 'Instrument Serif' }}>Rs. 349</span>
+                <span style={{ fontSize: '14px', color: 'var(--muted)', textDecoration: 'line-through', fontWeight: 600 }}>Rs. 699</span>
+                <span style={{ background: 'var(--accent)', border: '2px solid var(--black)', padding: '2px 8px', fontSize: '10px', fontWeight: 700 }}>LIFETIME</span>
               </div>
-              <RazorpayButton buttonText="Buy Now — Rs. 299" />
+              <RazorpayButton buttonText="Buy Now — Rs. 349" />
             </div>
 
             <div className="fade-up fade-up-delay-4" style={{ marginTop: '20px', display: 'flex', gap: '20px', fontSize: '13px', color: 'var(--muted)', flexWrap: 'wrap' }}>
@@ -116,7 +231,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div style={{ flex: '1 1 45%', minWidth: '300px', display: 'flex', justifyContent: 'center', marginTop: '0', marginBottom: '40px' }}>
+          <div style={{ flex: '1 1 45%', minWidth: '300px', display: 'flex', justifyContent: 'center', marginTop: '10', marginBottom: '40px' }}>
             <div style={{ animation: 'float 4s ease-in-out infinite', width: '100%', maxWidth: '380px' }}>
               <div className="neo-card" style={{ width: '100%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: '0' }}>
                 <div style={{ padding: '16px', borderBottom: '2px solid var(--black)', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -126,7 +241,7 @@ export default function Home() {
                     <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#f5f0e8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', marginLeft: '-8px', border: '1px solid white' }}>👁</div>
                     <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#facc15', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', marginLeft: '-8px', border: '1px solid white' }}></div>
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: '15px' }}>🧠 The Body Collective</div>
+                  <div style={{ fontWeight: 700, fontSize: '15px' }}>The Body Collective</div>
                 </div>
 
                 <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', fontFamily: 'Space Grotesk, sans-serif' }}>
@@ -317,7 +432,7 @@ export default function Home() {
             Sound familiar? PosturePal stages the intervention your body has been planning.
           </p>
           <div className="scroll-fade" style={{ display: 'flex', justifyContent: 'center' }}>
-            <RazorpayButton buttonText="Buy Now — Rs. 299" />
+            <RazorpayButton buttonText="Buy Now — Rs. 349" />
           </div>
         </div>
       </section>
@@ -439,7 +554,7 @@ export default function Home() {
 
           <div className="neo-card scroll-fade" style={{ maxWidth: '480px', margin: '0 auto', background: 'var(--accent)', border: '2px solid black', boxShadow: '8px 8px 0 black', padding: '48px', textAlign: 'center' }}>
 
-            <p style={{ fontSize: '16px', color: 'var(--black)', fontWeight: 700, margin: '12px 0 24px' }}>Lifetime License — Rs. 299</p>
+            <p style={{ fontSize: '16px', color: 'var(--black)', fontWeight: 700, margin: '12px 0 24px' }}>Lifetime License — Rs. 349</p>
 
             <div style={{ textAlign: 'left', margin: '0 auto 32px', maxWidth: '280px' }}>
               {[
@@ -456,7 +571,7 @@ export default function Home() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px' }}>
-              <RazorpayButton buttonText="Pay Rs. 299 →" />
+              <RazorpayButton buttonText="Pay Rs. 349 →" />
             </div>
 
             <p style={{ marginTop: '20px', fontSize: '13px', color: 'var(--muted)' }}>
@@ -510,7 +625,7 @@ export default function Home() {
           <h2 style={{ fontSize: '64px', color: 'white', marginBottom: '32px' }}>Your neck asked us to intervene.</h2>
 
           <div style={{ display: 'flex', justifyContent: 'center', margin: '40px 0' }}>
-            <RazorpayButton buttonText="Buy Now — Rs. 299" />
+            <RazorpayButton buttonText="Buy Now — Rs. 349" />
           </div>
 
           <p style={{ color: 'rgba(255,255,255,0.5)', marginTop: '16px', fontSize: '14px' }}>

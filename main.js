@@ -26,7 +26,7 @@ function setupAutoUpdater() {
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('checking-for-update', () => console.log('Checking for updates...'));
-  
+
   autoUpdater.on('update-available', (info) => {
     if (mainWindow) mainWindow.webContents.send('update:available', info);
   });
@@ -61,19 +61,19 @@ let lastSignals = null;
 function createTrayIcon(score) {
   const c = createCanvas(22, 22);
   const ctx = c.getContext('2d');
-  
+
   let color = '#888888'; // gray = not calibrated
   if (score !== null) {
     if (score >= 70) color = '#22c55e';      // green
-    else if (score >= 40) color = '#f59e0b'; // amber
+    else if (score >= 50) color = '#f59e0b'; // amber
     else color = '#ef4444';                  // red
   }
-  
+
   ctx.beginPath();
   ctx.arc(11, 11, 9, 0, Math.PI * 2);
   ctx.fillStyle = color;
   ctx.fill();
-  
+
   if (score !== null) {
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 9px Arial';
@@ -81,7 +81,7 @@ function createTrayIcon(score) {
     ctx.textBaseline = 'middle';
     ctx.fillText(String(score), 11, 11);
   }
-  
+
   return nativeImage.createFromBuffer(c.toBuffer('image/png'));
 }
 
@@ -89,21 +89,21 @@ function updateTrayMenu(score, signals, paused) {
   if (!tray) return;
 
   tray.setImage(createTrayIcon(paused ? null : score));
-  
+
   const scoreLabel = score === null
     ? 'Not calibrated'
     : `Score: ${score}  ${score >= 70 ? '🟢 Good' : score >= 40 ? '🟡 Fair' : '🔴 Poor'}`;
-  
+
   const menu = Menu.buildFromTemplate([
     { label: 'PosturePal', enabled: false },
     { label: paused ? '⏸ Detection paused' : scoreLabel, enabled: false },
     { type: 'separator' },
     {
       label: 'Open PosturePal',
-      click: () => { 
+      click: () => {
         if (mainWindow) {
-          mainWindow.show(); 
-          mainWindow.focus(); 
+          mainWindow.show();
+          mainWindow.focus();
         }
       }
     },
@@ -124,18 +124,18 @@ function updateTrayMenu(score, signals, paused) {
       }
     }
   ]);
-  
+
   tray.setContextMenu(menu);
 }
 
 function createTray() {
   tray = new Tray(createTrayIcon(null));
   tray.setToolTip('PosturePal — Click to open');
-  
-  tray.on('click', () => { 
+
+  tray.on('click', () => {
     if (mainWindow) {
-      mainWindow.show(); 
-      mainWindow.focus(); 
+      mainWindow.show();
+      mainWindow.focus();
     }
   });
 
@@ -342,7 +342,7 @@ ipcMain.handle('xp:get', () => store.get('xp', { total: 0, level: 1 }));
 ipcMain.handle('xp:add', (_, amount) => {
   const xp = store.get('xp', { total: 0, level: 1 });
   xp.total += amount;
-  
+
   function calculateLevel(totalXP) {
     const thresholds = [0, 100, 250, 500, 1000, 2000, 3500, 6000, 10000, 15000];
     for (let i = thresholds.length - 1; i >= 0; i--) {
@@ -350,7 +350,7 @@ ipcMain.handle('xp:add', (_, amount) => {
     }
     return 1;
   }
-  
+
   xp.level = calculateLevel(xp.total);
   store.set('xp', xp);
   return xp;

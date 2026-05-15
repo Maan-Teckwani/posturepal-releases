@@ -3,13 +3,13 @@
 import React, { useState, useEffect } from 'react';
 
 export default function SuccessPage() {
-  const [copied, setCopied] = useState(false);
   const [os, setOs] = useState('unknown');
 
-  // A mock license key to display since they just purchased
-  // In a real flow, this could be passed via URL parameter from Razorpay,
-  // or fetched from a database using the session ID.
-  const mockLicenseKey = "XXXX-XXXX-XXXX-XXXX";
+  const downloadLinks = {
+    mac: process.env.NEXT_PUBLIC_DOWNLOAD_URL_MAC || 'https://github.com/YOUR_USERNAME/posturepal-releases/releases/latest/download/PosturePal.dmg',
+    win: process.env.NEXT_PUBLIC_DOWNLOAD_URL_WIN || 'https://github.com/YOUR_USERNAME/posturepal-releases/releases/latest/download/PosturePal-Setup.exe',
+    linux: process.env.NEXT_PUBLIC_DOWNLOAD_URL_LINUX || 'https://github.com/YOUR_USERNAME/posturepal-releases/releases/latest/download/PosturePal.AppImage'
+  };
 
   useEffect(() => {
     // Basic OS detection for the download button
@@ -40,12 +40,6 @@ export default function SuccessPage() {
 
     return () => observer.disconnect();
   }, []);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(mockLicenseKey);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--cream)' }}>
@@ -87,40 +81,27 @@ export default function SuccessPage() {
 
           {/* LICENSE KEY CARD */}
           <div className="neo-card scroll-fade" style={{ background: 'var(--white)', marginBottom: '48px', padding: '40px', textAlign: 'center' }}>
-            <h2 style={{ fontSize: '24px', marginBottom: '8px', fontFamily: 'Space Grotesk, sans-serif' }}>Your License Key</h2>
-            <p style={{ color: 'var(--muted)', fontSize: '15px', marginBottom: '24px' }}>You'll need this to activate PosturePal on your device.</p>
-            
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', alignItems: 'stretch', flexWrap: 'wrap' }}>
-              <div style={{ 
-                background: '#f5f5f5', 
-                border: '2px solid var(--black)', 
-                padding: '16px 24px', 
-                fontSize: '24px', 
-                fontFamily: 'monospace', 
-                fontWeight: 'bold', 
-                letterSpacing: '2px',
-                flex: '1',
-                minWidth: '280px',
-                maxWidth: '400px',
-                boxShadow: 'inset 2px 2px 0px rgba(0,0,0,0.05)'
-              }}>
-                {mockLicenseKey}
-              </div>
-              <button 
-                onClick={handleCopy}
-                className="neo-btn" 
-                style={{ 
-                  background: copied ? '#d4f57a' : 'var(--black)', 
-                  color: copied ? 'var(--black)' : 'var(--white)',
-                  padding: '0 32px',
-                  whiteSpace: 'nowrap',
-                  fontSize: '16px'
-                }}
-              >
-                {copied ? '✓ Copied' : 'Copy Key'}
-              </button>
+            <h2 style={{ fontSize: '24px', marginBottom: '8px', fontFamily: 'Space Grotesk, sans-serif' }}>Check your inbox</h2>
+            <p style={{ color: 'var(--muted)', fontSize: '15px', marginBottom: '24px' }}>
+              Your PosturePal license key and download links have been emailed to you. If you do not see it within a few minutes, check your spam folder.
+            </p>
+
+            <div style={{ 
+              background: '#f5f5f5', 
+              border: '2px solid var(--black)', 
+              padding: '24px 28px', 
+              fontSize: '18px', 
+              fontFamily: 'Inter, sans-serif', 
+              fontWeight: '600', 
+              letterSpacing: '1px',
+              maxWidth: '560px',
+              margin: '0 auto',
+              boxShadow: 'inset 2px 2px 0px rgba(0,0,0,0.05)'
+            }}>
+              Your license key is on the way to your email address.
             </div>
-            <p style={{ fontSize: '13px', color: 'var(--muted)', marginTop: '16px' }}>*Valid for up to 2 devices.</p>
+
+            <p style={{ fontSize: '13px', color: 'var(--muted)', marginTop: '16px' }}>*The same license works on up to 2 devices.</p>
           </div>
 
           {/* DOWNLOAD & SETUP */}
@@ -134,10 +115,10 @@ export default function SuccessPage() {
                 <p style={{ color: 'var(--black)', marginBottom: '24px', flex: 1 }}>Get the PosturePal app for your operating system.</p>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <a href="https://github.com/Maan-Teckwani/posturepal-releases/releases/latest" target="_blank" rel="noopener noreferrer" className="neo-btn" style={{ background: 'var(--white)', textAlign: 'center', textDecoration: 'none', color: 'var(--black)', padding: '12px' }}>
+                  <a href={downloadLinks.mac} target="_blank" rel="noopener noreferrer" className="neo-btn" style={{ background: 'var(--white)', textAlign: 'center', textDecoration: 'none', color: 'var(--black)', padding: '12px' }}>
                     {os === 'mac' ? '★ Download for Mac' : 'Download for Mac'}
                   </a>
-                  <a href="https://github.com/Maan-Teckwani/posturepal-releases/releases/latest" target="_blank" rel="noopener noreferrer" className="neo-btn" style={{ background: 'var(--white)', textAlign: 'center', textDecoration: 'none', color: 'var(--black)', padding: '12px' }}>
+                  <a href={downloadLinks.win} target="_blank" rel="noopener noreferrer" className="neo-btn" style={{ background: 'var(--white)', textAlign: 'center', textDecoration: 'none', color: 'var(--black)', padding: '12px' }}>
                     {os === 'win' ? '★ Download for Windows' : 'Download for Windows'}
                   </a>
                 </div>
