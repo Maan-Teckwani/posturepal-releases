@@ -1,0 +1,10 @@
+PosturePal License Agreement
+
+Copyright (c) 2026 PosturePal. All rights reserved.
+
+This software is licensed, not sold. By installing PosturePal,
+you agree to use it on up to 2 devices with a valid license key.
+
+This software may not be redistributed or resold.
+
+For support: hello@posturepal.io
