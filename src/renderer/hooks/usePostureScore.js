@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-const DEBUG = true; // set false in production
+const DEBUG = false;
 
 function getKeypoint(keypoints, name) {
   return keypoints.find(kp => kp.name === name);

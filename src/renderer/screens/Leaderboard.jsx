@@ -16,6 +16,12 @@ const Leaderboard = () => {
   const [currentUser, setCurrentUser] = useState('');
 
   useEffect(() => {
+    if (!supabase) {
+      setError('Leaderboard unavailable');
+      setLoading(false);
+      return;
+    }
+
     let intervalId;
 
     const initAndFetch = async () => {
@@ -32,7 +38,7 @@ const Leaderboard = () => {
           setCurrentUser(username);
 
           const xpData = await window.api.getXP();
-          
+
           await supabase.from('leaderboard').upsert({
             username,
             xp: xpData.total,
@@ -42,7 +48,7 @@ const Leaderboard = () => {
         }
 
         const fetchLeaderboard = async () => {
-          const { data, fetchError } = await supabase
+          const { data, error: fetchError } = await supabase
             .from('leaderboard')
             .select('*')
             .order('xp', { ascending: false })
@@ -56,8 +62,8 @@ const Leaderboard = () => {
         await fetchLeaderboard();
         intervalId = setInterval(fetchLeaderboard, 60000);
       } catch (err) {
-        console.error("Supabase error:", err);
-        setError("Offline mode");
+        console.error('Supabase error:', err);
+        setError('Offline mode');
         setLoading(false);
       }
     };
@@ -80,8 +86,8 @@ const Leaderboard = () => {
   if (error) {
     return (
       <div style={{ padding: '30px', color: 'var(--black)', textAlign: 'center', marginTop: '100px', fontFamily: "'Space Grotesk', sans-serif" }}>
-        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: '48px', color: 'red' }}>{error}</h2>
-        <p style={{ fontWeight: 'bold' }}>Could not connect to the global leaderboard.</p>
+        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: '48px' }}>{error}</h2>
+        <p style={{ fontWeight: 'bold' }}>The global leaderboard requires an internet connection.</p>
       </div>
     );
   }
@@ -100,7 +106,7 @@ const Leaderboard = () => {
   return (
     <div style={{ padding: '30px', color: 'var(--black)', maxWidth: '800px', margin: '0 auto', height: '100%', overflowY: 'auto', fontFamily: "'Space Grotesk', sans-serif" }}>
       <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: '48px', marginBottom: '30px', margin: '0 0 20px 0' }}>Global Leaderboard</h2>
-      
+
       <div style={{ backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', overflow: 'hidden' }}>
         {users.map((user, index) => {
           const isMe = user.username === currentUser;
@@ -108,13 +114,13 @@ const Leaderboard = () => {
           const title = LEVEL_TITLES[levelIndex];
 
           let rankColor = 'var(--black)';
-          if (index === 0) rankColor = '#ffd700'; // gold
-          else if (index === 1) rankColor = '#c0c0c0'; // silver
-          else if (index === 2) rankColor = '#cd7f32'; // bronze
+          if (index === 0) rankColor = '#ffd700';
+          else if (index === 1) rankColor = '#c0c0c0';
+          else if (index === 2) rankColor = '#cd7f32';
 
           return (
-            <div key={user.id} style={{ 
-              display: 'flex', alignItems: 'center', padding: '15px 20px', 
+            <div key={user.id} style={{
+              display: 'flex', alignItems: 'center', padding: '15px 20px',
               backgroundColor: isMe ? 'var(--accent)' : 'transparent',
               borderBottom: index === users.length - 1 ? 'none' : 'var(--border)'
             }}>

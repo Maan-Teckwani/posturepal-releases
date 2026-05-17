@@ -9,9 +9,8 @@ const store = new Store({
     settings: {
       threshold: 60,
       alertDelay: 3,
-      cooldown: 5,
-      runOnStartup: false,
-      username: ''
+      cooldown: 30,
+      runOnStartup: false
     },
     sessions: [],
     xp: { total: 0, level: 1 },
