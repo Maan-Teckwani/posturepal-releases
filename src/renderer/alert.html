@@ -141,9 +141,45 @@
 
   <script>
     const video = document.getElementById('webcam');
-    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-      .then(stream => { video.srcObject = stream; })
-      .catch(err => console.error(err));
+
+    async function acquire(cameraId) {
+      if (cameraId) {
+        try {
+          return await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: { exact: cameraId } },
+            audio: false
+          });
+        } catch (err) {
+          if (err && err.name === 'OverconstrainedError') {
+            return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          }
+          throw err;
+        }
+      }
+      return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    }
+
+    async function startStream() {
+      try {
+        let cameraId = null;
+        if (window.api) {
+          const s = await window.api.getData('settings');
+          if (s && s.cameraId) cameraId = s.cameraId;
+        }
+        if (video.srcObject) {
+          video.srcObject.getTracks().forEach(t => t.stop());
+        }
+        const stream = await acquire(cameraId);
+        video.srcObject = stream;
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    startStream();
+    if (window.api && window.api.onCameraChanged) {
+      window.api.onCameraChanged(() => startStream());
+    }
 
     document.getElementById('closeBtn').addEventListener('click', () => {
       window.api.hideAlert();

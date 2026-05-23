@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { syncLeaderboard } from '../leaderboardSync';
 
 const LEVEL_TITLES = [
   "Shrimp 🦐", "Minnow 🐟", "Salmon 🐠", "Dolphin 🐬", "Shark 🦈",
@@ -37,14 +38,7 @@ const Leaderboard = () => {
           }
           setCurrentUser(username);
 
-          const xpData = await window.api.getXP();
-
-          await supabase.from('leaderboard').upsert({
-            username,
-            xp: xpData.total,
-            level: xpData.level,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'username' });
+          await syncLeaderboard();
         }
 
         const fetchLeaderboard = async () => {

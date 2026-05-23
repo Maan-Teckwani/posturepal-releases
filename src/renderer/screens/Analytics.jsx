@@ -6,6 +6,76 @@ const LEVEL_TITLES = [
 ];
 const XP_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 3500, 6000, 10000, 15000];
 
+const GOOD_SCORE = 70; // score at/above which posture counts as "good"
+
+const ISSUE_LABELS = {
+  headForward: 'Head Forward',
+  headDown: 'Head Down',
+  headTilt: 'Head Tilt',
+  shoulders: 'Slouched Shoulders',
+  distance: 'Screen Distance'
+};
+
+// Each recorded score point represents a 30-second slice of tracked time.
+const SLICE_SECONDS = 30;
+
+// Aggregates detailed posture metrics from a set of sessions.
+function computeDetailed(scopedSessions) {
+  const points = [];
+  let xpEarned = 0;
+
+  scopedSessions.forEach(s => {
+    xpEarned += s.xpEarned || 0;
+    (s.scores || []).forEach(pt => points.push(pt));
+  });
+
+  points.sort((a, b) => a.timestamp - b.timestamp);
+
+  const totalPoints = points.length;
+  const goodPoints = points.filter(pt => pt.score >= GOOD_SCORE).length;
+  const consistency = totalPoints > 0 ? Math.round((goodPoints / totalPoints) * 100) : 0;
+  const activeMinutes = Math.round((totalPoints * SLICE_SECONDS) / 60);
+
+  // Longest run of consecutive good-posture slices.
+  let longestStreak = 0;
+  let currentStreak = 0;
+  points.forEach(pt => {
+    if (pt.score >= GOOD_SCORE) {
+      currentStreak += 1;
+      if (currentStreak > longestStreak) longestStreak = currentStreak;
+    } else {
+      currentStreak = 0;
+    }
+  });
+  const longestStreakMin = Math.round((longestStreak * SLICE_SECONDS) / 60);
+
+  // Tally which posture issue showed up most often.
+  const issueCounts = {};
+  points.forEach(pt => {
+    (pt.issues || []).forEach(key => {
+      issueCounts[key] = (issueCounts[key] || 0) + 1;
+    });
+  });
+  let topIssue = null;
+  let topIssueCount = 0;
+  Object.entries(issueCounts).forEach(([key, count]) => {
+    if (count > topIssueCount) {
+      topIssue = key;
+      topIssueCount = count;
+    }
+  });
+
+  return {
+    consistency,
+    activeMinutes,
+    longestStreakMin,
+    xpEarned,
+    topIssue: topIssue ? (ISSUE_LABELS[topIssue] || topIssue) : 'None 🎉',
+    issueCounts,
+    sessionCount: scopedSessions.length
+  };
+}
+
 const Analytics = () => {
   const [tab, setTab] = useState('today'); // today, week, month
   const [sessions, setSessions] = useState([]);
@@ -23,6 +93,15 @@ const Analytics = () => {
       }
     };
     loadData();
+  }, []);
+
+  // Keep the "Your Progress" card live while this page is open.
+  useEffect(() => {
+    if (window.api && window.api.onXPUpdate) {
+      window.api.onXPUpdate((xp) => {
+        if (xp) setXpData(xp);
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -284,6 +363,53 @@ const Analytics = () => {
     );
   };
 
+  const getScopedSessions = (scope) => {
+    const now = new Date();
+    if (scope === 'today') {
+      return sessions.filter(s => {
+        const d = new Date(s.startTime);
+        return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+    }
+    if (scope === 'week') {
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return sessions.filter(s => new Date(s.startTime) > weekAgo);
+    }
+    return sessions.filter(s => {
+      const d = new Date(s.startTime);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+  };
+
+  const renderDetailedMetrics = () => {
+    const d = computeDetailed(getScopedSessions(tab));
+    const activeH = Math.floor(d.activeMinutes / 60);
+    const activeM = d.activeMinutes % 60;
+
+    const metrics = [
+      { title: 'Active time', value: activeH > 0 ? `${activeH}h ${activeM}m` : `${activeM}m` },
+      { title: 'Posture consistency', value: `${d.consistency}%`, color: d.consistency >= 70 ? '#4caf50' : d.consistency >= 40 ? '#ff9800' : '#f44336' },
+      { title: 'Longest good streak', value: d.longestStreakMin > 0 ? `${d.longestStreakMin}m` : '—' },
+      { title: 'XP earned', value: d.xpEarned },
+      { title: 'Most common issue', value: d.topIssue, small: true },
+      { title: 'Sessions', value: d.sessionCount }
+    ];
+
+    return (
+      <div style={{ marginBottom: '30px' }}>
+        <h3 style={{ fontFamily: "'Instrument Serif', serif", fontSize: '28px', marginBottom: '15px' }}>Detailed Metrics</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
+          {metrics.map(m => (
+            <div key={m.title} style={cardStyle}>
+              <div style={cardTitle}>{m.title}</div>
+              <div style={{ ...cardVal, fontSize: m.small ? '20px' : '32px', color: m.color || 'var(--black)' }}>{m.value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const levelIndex = Math.max(0, Math.min(xpData.level - 1, LEVEL_TITLES.length - 1));
   const currentTitle = LEVEL_TITLES[levelIndex];
   const nextThreshold = XP_THRESHOLDS[levelIndex + 1] || XP_THRESHOLDS[XP_THRESHOLDS.length - 1];
@@ -320,6 +446,8 @@ const Analytics = () => {
               {renderMonthCalendar()}
             </div>
           )}
+
+          {renderDetailedMetrics()}
         </>
       )}
 

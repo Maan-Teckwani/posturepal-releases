@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useWebcam } from '../hooks/useWebcam';
-import { usePoseDetector } from '../hooks/usePoseDetector';
+import { usePoseDetector } from '../contexts/PoseDetectorContext';
 
 function getKeypoint(keypoints, name) {
   return keypoints.find(kp => kp.name === name);
@@ -39,6 +39,7 @@ function calculateRatios(kps, vWidth) {
     noseToShoulderRatio: (shoulderMid.y - nose.y) / shoulderWidth,
     earTiltDelta: Math.abs(leftEar.y - rightEar.y) / shoulderWidth,
     neckRatio: (shoulderMid.y - earMid.y) / shoulderWidth,
+    shoulderTiltDelta: Math.abs(leftShoulder.y - rightShoulder.y) / shoulderWidth,
     faceToFrameRatio: faceWidth / vWidth,
     distanceRatioB: eyeDist / shoulderWidth
   };
@@ -63,6 +64,11 @@ const Dashboard = () => {
   const [countdown, setCountdown] = useState(3);
   const [isPaused, setIsPaused] = useState(false);
   const latestKeypointsRef = useRef(null);
+  const signalsRef = useRef(null);
+  const isCalibratedRef = useRef(false);
+
+  useEffect(() => { signalsRef.current = signals; }, [signals]);
+  useEffect(() => { isCalibratedRef.current = isCalibrated; }, [isCalibrated]);
 
   // Receive background scoring and pause state
   useEffect(() => {
@@ -77,6 +83,11 @@ const Dashboard = () => {
       if (window.api.onDetectionToggle) {
         window.api.onDetectionToggle((pausedState) => {
           setIsPaused(pausedState);
+        });
+      }
+      if (window.api.onXPUpdate) {
+        window.api.onXPUpdate((xp) => {
+          setUserData(prev => ({ ...prev, xp: xp.total, level: xp.level }));
         });
       }
     }
@@ -124,12 +135,29 @@ const Dashboard = () => {
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
     const pointsToDraw = ['nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear', 'left_shoulder', 'right_shoulder'];
-    
+
+    // Each landmark is colored by the signal(s) that govern it. Pre-calibration
+    // we have no judgment to render, so dots stay neutral gray.
+    const sig = signalsRef.current;
+    const calibrated = isCalibratedRef.current;
+    const colorFor = (name) => {
+      if (!calibrated || !sig) return '#9ca3af';
+      let ok = true;
+      if (name === 'nose' || name === 'left_eye' || name === 'right_eye') {
+        ok = sig.headForward?.ok !== false && sig.headDown?.ok !== false;
+      } else if (name === 'left_ear' || name === 'right_ear') {
+        ok = sig.headTilt?.ok !== false;
+      } else if (name === 'left_shoulder' || name === 'right_shoulder') {
+        ok = sig.shoulders?.ok !== false;
+      }
+      return ok ? '#22c55e' : '#ef4444';
+    };
+
     keypoints.forEach(kp => {
       if (pointsToDraw.includes(kp.name) && kp.score > 0.3) {
         ctx.beginPath();
         ctx.arc(kp.x, kp.y, 5, 0, 2 * Math.PI);
-        ctx.fillStyle = 'red';
+        ctx.fillStyle = colorFor(kp.name);
         ctx.fill();
       }
     });
@@ -177,11 +205,11 @@ const Dashboard = () => {
           const required = ['nose','left_eye','right_eye','left_ear','right_ear','left_shoulder','right_shoulder'];
           const allVisible = required.every(name => {
             const kp = kps.find(k => k.name === name);
-            return kp && kp.score > 0.5;
+            return kp && kp.score > 0.35;
           });
 
           if (!allVisible) {
-            alert('Cannot calibrate — make sure your face and shoulders are clearly visible.');
+            alert('Move closer to the camera or improve lighting — shoulders must be visible.');
             setCalibrationState('idle');
             return;
           }
@@ -212,7 +240,7 @@ const Dashboard = () => {
   let alertMessage = '';
   if (isPaused) {
     // Hidden from top text, shown in overlay
-  } else if (isCalibrated && signals && score !== null && score < 60) {
+  } else if (isCalibrated && signals) {
     const bad = [];
     if (!signals.headDown.ok)    bad.push({ key: 'headDown',    delta: signals.headDown.delta,    msg: 'Lift your chin up 👆' });
     if (!signals.distance.ok)    bad.push({ key: 'distance',    delta: 0.5,                       msg: signals.distance.tooClose ? 'Move away from the screen 🖥️' : 'Move closer to the screen' });
@@ -223,8 +251,6 @@ const Dashboard = () => {
     if (bad.length > 0) {
       bad.sort((a, b) => b.delta - a.delta);
       alertMessage = bad[0].msg;
-    } else {
-      alertMessage = "Fix your posture! 🪑";
     }
   }
 
@@ -260,21 +286,29 @@ const Dashboard = () => {
         </div>
       )}
 
-      <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <video 
-          ref={videoRef} 
-          autoPlay 
-          playsInline 
-          muted 
+      <div style={{
+        position: 'relative',
+        aspectRatio: videoSize.width > 0 ? `${videoSize.width} / ${videoSize.height}` : '4 / 3',
+        maxWidth: '100%',
+        maxHeight: '100%',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}>
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
           onLoadedMetadata={handleVideoLoaded}
-          style={{ 
-            width: '100%', 
-            height: '100%', 
+          style={{
+            width: '100%',
+            height: '100%',
             objectFit: 'cover',
             transform: 'scaleX(-1)'
-          }} 
+          }}
         />
-        
+
         {videoSize.width > 0 && videoSize.height > 0 && (
           <canvas
             ref={canvasRef}
@@ -287,7 +321,6 @@ const Dashboard = () => {
               transform: 'scaleX(-1)',
               width: '100%',
               height: '100%',
-              objectFit: 'cover',
               pointerEvents: 'none'
             }}
           />

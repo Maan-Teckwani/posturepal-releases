@@ -16,20 +16,17 @@ files:
   - package.json
   - node_modules/**/*
 
-extraResources:
-  - from: assets/
-    to: assets/
-    filter:
-      - "**/*"
-
 # ── macOS ──
+# Unsigned build for now. Users will need to right-click → Open the first time
+# they launch the app so Gatekeeper allows it. When an Apple Developer cert is
+# available, set identity to the cert name, flip hardenedRuntime back to true,
+# and re-enable the Apple secrets in .github/workflows/release.yml.
 mac:
   category: public.app-category.healthcare-fitness
   icon: assets/build/icon.icns
-  hardenedRuntime: true
+  hardenedRuntime: false
   gatekeeperAssess: false
-  entitlements: assets/build/entitlements.mac.plist
-  entitlementsInherit: assets/build/entitlements.mac.plist
+  identity: null
   target:
     - target: dmg
       arch: [x64, arm64]
@@ -38,7 +35,6 @@ mac:
 
 dmg:
   title: PosturePal
-  icon: assets/build/icon.icns
   window:
     width: 540
     height: 380
@@ -52,25 +48,22 @@ dmg:
 
 # ── Windows ──
 win:
-  icon: assets/build/icon.ico
   target:
     - target: nsis
       arch: [x64]
+  icon: assets/build/icon.ico
 
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  installerIcon: assets/build/icon.ico
-  uninstallerIcon: assets/build/icon.ico
-  installerHeader: assets/build/installer-header.bmp
-  license: assets/build/license.txt
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: PosturePal
+  installerIcon: assets/build/icon.ico
+  uninstallerIcon: assets/build/icon.ico
 
 # ── Linux ──
 linux:
-  icon: assets/build/icons/
   category: Utility
   target:
     - target: AppImage

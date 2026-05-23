@@ -35,19 +35,23 @@ export async function POST(req) {
   const event = JSON.parse(bodyText);
   const eventName = event.event;
 
-  const paymentEntity =
-    eventName === 'payment.captured' || eventName === 'payment.authorized' || eventName === 'payment.failed'
-      ? event.payload?.payment?.entity
-      : eventName === 'payment_link.paid'
-      ? event.payload?.payment?.entity
-      : null;
+  if (eventName !== 'payment.captured' && eventName !== 'payment_link.paid') {
+    return new Response(JSON.stringify({ status: 'ignored', event: eventName }), {
+      status: 200, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  const paymentEntity = event.payload?.payment?.entity;
 
   if (!paymentEntity) {
-    return new Response('Unsupported event or missing payment entity', { status: 400 });
+    return new Response('Missing payment entity', { status: 400 });
   }
 
   const paymentId = paymentEntity.id;
   const email = paymentEntity.email || event.payload?.payment_link?.entity?.customer?.email;
+  const notes = paymentEntity.notes || {};
+  const firstName = String(notes.first_name || '').trim();
+  const lastName = String(notes.last_name || '').trim();
 
   if (!paymentId) {
     return new Response('Missing payment id', { status: 400 });
@@ -65,6 +69,16 @@ export async function POST(req) {
 
   if (existing) {
     return new Response(JSON.stringify({ status: 'already_processed' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  if (firstName && lastName) {
+    const { error: customerError } = await supabase.from('customers').upsert(
+      { first_name: firstName, last_name: lastName, email, created_at: new Date().toISOString() },
+      { onConflict: 'email' }
+    );
+    if (customerError) {
+      console.error('Supabase customer upsert error:', customerError);
+    }
   }
 
   const licenseKey = generateLicenseKey();

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, session } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const { createCanvas } = require('canvas');
@@ -17,6 +17,9 @@ const store = new Store({
     licenseKey: null
   }
 });
+
+// Base URL of the deployed PosturePal website (handles license validation).
+const LICENSE_API_URL = 'https://www.posturepal.in';
 
 function setupAutoUpdater() {
   if (!app.isPackaged) return;
@@ -56,6 +59,7 @@ let tray = null;
 let isPaused = false;
 let lastScore = null;
 let lastSignals = null;
+let quitHandshakeDone = false;
 
 function createTrayIcon(score) {
   const c = createCanvas(22, 22);
@@ -116,9 +120,6 @@ function updateTrayMenu(score, signals, paused) {
       label: 'Quit PosturePal',
       click: () => {
         app.isQuitting = true;
-        if (backgroundWindow && !backgroundWindow.isDestroyed()) {
-          backgroundWindow.webContents.send('app:quitting');
-        }
         app.quit();
       }
     }
@@ -166,6 +167,13 @@ function createBackgroundWindow() {
   });
 
   backgroundWindow.loadFile(path.join(__dirname, 'src', 'renderer', 'background.html'));
+}
+
+function startMonitoring() {
+  session.defaultSession.setPermissionRequestHandler(null);
+  if (!backgroundWindow || backgroundWindow.isDestroyed()) {
+    createBackgroundWindow();
+  }
 }
 
 function createAlertWindow() {
@@ -222,7 +230,22 @@ function createWindow() {
   });
 }
 
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      if (!mainWindow.isVisible()) mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
 app.whenReady().then(() => {
+  if (!gotTheLock) return;
+
   const settings = store.get('settings');
   app.setLoginItemSettings({
     openAtLogin: settings.runOnStartup || false,
@@ -233,31 +256,60 @@ app.whenReady().then(() => {
     store.set('calibrationVersion', 2);
   }
 
-  createBackgroundWindow();
+  if (!store.get('licenseKey')) {
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+      if (permission === 'media') return callback(false);
+      callback(true);
+    });
+  }
+
   createWindow();
   createAlertWindow();
   createTray();
   setupAutoUpdater();
+
+  // Monitoring only runs once this device has an activated license
+  if (store.get('licenseKey')) {
+    createBackgroundWindow();
+  }
 
   app.on('activate', function () {
     if (mainWindow && !mainWindow.isVisible()) {
       mainWindow.show();
       mainWindow.focus();
     } else if (BrowserWindow.getAllWindows().length === 0) {
-      createBackgroundWindow();
       createWindow();
       createAlertWindow();
+      if (store.get('licenseKey')) {
+        createBackgroundWindow();
+      }
     }
   });
 });
 
-app.on('before-quit', () => {
+app.on('before-quit', (e) => {
   app.isQuitting = true;
-  if (backgroundWindow && !backgroundWindow.isDestroyed()) {
-    backgroundWindow.webContents.send('app:quitting');
-  }
   if (mainWindow) mainWindow.removeAllListeners('close');
   if (backgroundWindow) backgroundWindow.removeAllListeners('close');
+
+  if (quitHandshakeDone) return;
+
+  // Give the background window a chance to flush the session and push the
+  // latest XP to the Supabase leaderboard before the app actually exits.
+  if (backgroundWindow && !backgroundWindow.isDestroyed()) {
+    e.preventDefault();
+    backgroundWindow.webContents.send('app:quitting');
+    setTimeout(() => {
+      quitHandshakeDone = true;
+      app.quit();
+    }, 5000); // safety fallback if the renderer never reports back
+  }
+});
+
+ipcMain.handle('quit:ready', () => {
+  if (quitHandshakeDone) return;
+  quitHandshakeDone = true;
+  app.quit();
 });
 
 app.on('window-all-closed', function () {
@@ -313,6 +365,17 @@ ipcMain.handle('detection:toggle', () => {
   toggleDetection();
 });
 
+// Broadcast camera changes so the background detector and the alert window
+// drop their current stream and re-acquire the newly selected device.
+ipcMain.handle('camera:changed', (_, cameraId) => {
+  if (backgroundWindow && !backgroundWindow.isDestroyed()) {
+    backgroundWindow.webContents.send('camera:changed', cameraId);
+  }
+  if (alertWindow && !alertWindow.isDestroyed()) {
+    alertWindow.webContents.send('camera:changed', cameraId);
+  }
+});
+
 ipcMain.handle('app:setLoginItem', (event, enabled) => {
   app.setLoginItemSettings({ openAtLogin: enabled, openAsHidden: true });
   store.set('settings.runOnStartup', enabled);
@@ -336,33 +399,48 @@ ipcMain.handle('session:save', (_, session) => {
 
 ipcMain.handle('session:getAll', () => store.get('sessions', []));
 
-ipcMain.handle('xp:get', () => store.get('xp', { total: 0, level: 1 }));
+const XP_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 3500, 6000, 10000, 15000];
+
+function calculateLevel(totalXP) {
+  for (let i = XP_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (totalXP >= XP_THRESHOLDS[i]) return i + 1;
+  }
+  return 1;
+}
+
+// Total XP actually recorded across every saved session. Sessions are the
+// reliable, persisted source of truth — this is what Detailed Metrics shows.
+function sumSessionXP() {
+  return store.get('sessions', []).reduce((t, s) => t + (s.xpEarned || 0), 0);
+}
+
+// Reconciles the cumulative XP counter against the session data so it can
+// never fall behind the XP that has actually been earned. This self-heals the
+// counter if an addXP call was ever missed (app crash mid-session, etc.), so
+// the dashboard, analytics and leaderboard always agree with Detailed Metrics.
+function reconcileXP(extra = 0) {
+  const stored = store.get('xp', { total: 0, level: 1 });
+  const total = Math.max(stored.total || 0, sumSessionXP()) + extra;
+  const xp = { total, level: calculateLevel(total) };
+  if (xp.total !== stored.total || xp.level !== stored.level) {
+    store.set('xp', xp);
+  }
+  return xp;
+}
+
+ipcMain.handle('xp:get', () => reconcileXP(0));
 
 ipcMain.handle('xp:add', (_, amount) => {
-  const xp = store.get('xp', { total: 0, level: 1 });
-  xp.total += amount;
-
-  function calculateLevel(totalXP) {
-    const thresholds = [0, 100, 250, 500, 1000, 2000, 3500, 6000, 10000, 15000];
-    for (let i = thresholds.length - 1; i >= 0; i--) {
-      if (totalXP >= thresholds[i]) return i + 1;
-    }
-    return 1;
+  const xp = reconcileXP(amount || 0);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('xp:updated', xp);
   }
-
-  xp.level = calculateLevel(xp.total);
-  store.set('xp', xp);
   return xp;
 });
 
 ipcMain.handle('license:validate', async (_, key) => {
-  // In development, bypass license check
-  if (process.env.NODE_ENV === 'development') {
-    return { valid: true };
-  }
-
   try {
-    const res = await fetch('https://posturepal-web.vercel.app/api/validate-license', {
+    const res = await fetch(`${LICENSE_API_URL}/api/validate-license`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key })
@@ -370,9 +448,10 @@ ipcMain.handle('license:validate', async (_, key) => {
     const data = await res.json();
     if (data.valid) {
       store.set('licenseKey', key);
+      startMonitoring();
     }
     return data;
   } catch (err) {
-    return { valid: false, message: 'Could not connect. Check your internet.' };
+    return { valid: false, message: 'Could not connect. Check your internet connection and try again.' };
   }
 });

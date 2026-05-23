@@ -4,6 +4,7 @@ import Analytics from './screens/Analytics';
 import Leaderboard from './screens/Leaderboard';
 import Settings from './screens/Settings';
 import License from './screens/License';
+import { PoseDetectorProvider } from './contexts/PoseDetectorContext';
 
 const App = () => {
   const [activeTab, setActiveTab] = useState('Dashboard');
@@ -14,12 +15,6 @@ const App = () => {
   const [downloadProgress, setDownloadProgress] = useState(0);
 
   useEffect(() => {
-    // In development, skip the license screen
-    if (process.env.NODE_ENV === 'development') {
-      setIsLicensed(true);
-      return;
-    }
-    
     if (window.api && window.api.getLicense) {
       window.api.getLicense().then(key => {
         setIsLicensed(!!key);
@@ -59,8 +54,9 @@ const App = () => {
   if (!isLicensed) return <License onActivated={() => setIsLicensed(true)} />;
 
   return (
+    <PoseDetectorProvider>
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--cream)', color: 'var(--black)' }}>
-      
+
       {updateState === 'available' && (
         <div style={{
           background: '#d4f57a', borderBottom: '2px solid black',
@@ -132,6 +128,7 @@ const App = () => {
         {renderScreen()}
       </div>
     </div>
+    </PoseDetectorProvider>
   );
 };
 

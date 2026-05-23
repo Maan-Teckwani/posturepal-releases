@@ -149,11 +149,11 @@ export const usePostureScore = (keypoints, videoWidth, videoHeight) => {
     const required = ['nose','left_eye','right_eye','left_ear','right_ear','left_shoulder','right_shoulder'];
     const allVisible = required.every(name => {
       const kp = kps.find(k => k.name === name);
-      return kp && kp.score > 0.5;
+      return kp && kp.score > 0.35;
     });
 
     if (!allVisible) {
-      return { success: false, message: 'Cannot calibrate — make sure your face and shoulders are clearly visible.' };
+      return { success: false, message: 'Move closer to the camera or improve lighting — shoulders must be visible.' };
     }
 
     const ratios = calculateRatios(kps, vWidth);
