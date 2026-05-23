@@ -103,7 +103,7 @@ export const usePostureScore = (keypoints, videoWidth, videoHeight) => {
 
     // Signal 3: Shoulders (Neck Ratio)
     const neckDelta = baseline.neckRatio - currentRatios.neckRatio;
-    const shouldersBad = neckDelta > 0.08;
+    const shouldersBad = neckDelta > 0.13;
 
     if (DEBUG) {
       window.__postureDebug = { 
@@ -116,7 +116,7 @@ export const usePostureScore = (keypoints, videoWidth, videoHeight) => {
     const headForwardScore = Math.max(0, 100 - (headForwardDelta / 0.09) * 25);
     const headDownScore    = Math.max(0, 100 - (headDownDelta    / 0.10) * 30);
     const headTiltScore    = Math.max(0, 100 - (headTiltBad ? 20 : 0));
-    const shouldersScore   = Math.max(0, 100 - (neckDelta        / 0.08) * 25);
+    const shouldersScore   = Math.max(0, 100 - (neckDelta        / 0.13) * 25);
     const distanceScore    = Math.max(0, 100 - (distanceBad ? 30 : 0));
 
     const rawScore = Math.round(
