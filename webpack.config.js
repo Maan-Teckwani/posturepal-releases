@@ -29,6 +29,6 @@ module.exports = {
     extensions: ['.js', '.jsx']
   },
   plugins: [
-    new Dotenv()
+    new Dotenv({ silent: true, systemvars: true })
   ]
 };
