@@ -15,11 +15,17 @@ const Settings = () => {
   const [nameStatus, setNameStatus] = useState('');
   const [cameras, setCameras] = useState([]);
 
+  // Lifetime activation panel state.
+  const [licenseInfo, setLicenseInfo] = useState({ mode: 'loading' }); // loading | paid | trial | none
+  const [lifetimeKey, setLifetimeKey] = useState('');
+  const [lifetimeStatus, setLifetimeStatus] = useState({ loading: false, message: '', type: '' });
+
   useEffect(() => {
     const loadSettings = async () => {
       if (window.api) {
         const s = await window.api.getData('settings');
         if (s) {
+          if (s.alertDelay !== undefined && s.alertDelay < 5) s.alertDelay = 5;
           setSettings(prev => ({ ...prev, ...s }));
         }
         const name = await window.api.getData('username');
@@ -27,10 +33,61 @@ const Settings = () => {
           setDisplayName(name);
           setSavedName(name);
         }
+        const license = await window.api.getLicense?.();
+        if (license) {
+          setLicenseInfo({ mode: 'paid' });
+        } else {
+          const trial = await window.api.trialStatus?.();
+          if (trial?.state === 'active') setLicenseInfo({ mode: 'trial', remainingMs: trial.remainingMs });
+          else setLicenseInfo({ mode: 'none' });
+        }
       }
     };
     loadSettings();
   }, []);
+
+  const formatLifetimeKey = (value) => {
+    const clean = value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const parts = [];
+    for (let i = 0; i < clean.length; i += 4) parts.push(clean.substring(i, i + 4));
+    return parts.join('-').substring(0, 19);
+  };
+
+  const handleLifetimeKeyChange = (e) => {
+    setLifetimeKey(formatLifetimeKey(e.target.value));
+    setLifetimeStatus({ loading: false, message: '', type: '' });
+  };
+
+  const handleActivateLifetime = async () => {
+    if (lifetimeKey.length !== 19) {
+      setLifetimeStatus({ loading: false, message: 'Invalid format. Use XXXX-XXXX-XXXX-XXXX', type: 'error' });
+      return;
+    }
+    if (!window.api?.validateLicense) {
+      setLifetimeStatus({ loading: false, message: 'App not ready.', type: 'error' });
+      return;
+    }
+    setLifetimeStatus({ loading: true, message: 'Activating...', type: 'info' });
+    try {
+      const res = await window.api.validateLicense(lifetimeKey);
+      if (res?.valid) {
+        setLifetimeStatus({ loading: false, message: '✓ Lifetime access activated! Restarting...', type: 'success' });
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        setLifetimeStatus({
+          loading: false,
+          message: 'That lifetime license key was not recognized. Make sure you copied the key you received after paying Rs. 299 on posturepal.in.',
+          type: 'error'
+        });
+      }
+    } catch (err) {
+      setLifetimeStatus({ loading: false, message: 'Activation failed. Please try again.', type: 'error' });
+    }
+  };
+
+  const openBuyPage = () => {
+    if (window.api?.openBuyPage) window.api.openBuyPage();
+  };
 
   // Camera labels are blank on Windows until the page has been granted camera
   // permission at least once. We do a throwaway getUserMedia to coax the labels
@@ -100,6 +157,54 @@ const Settings = () => {
   return (
     <div style={{ padding: '40px', maxWidth: '600px', margin: '0 auto', color: 'var(--black)', boxSizing: 'border-box', fontFamily: "'Space Grotesk', sans-serif" }}>
       <h2 style={{ marginBottom: '40px', fontFamily: "'Instrument Serif', serif", fontSize: '48px' }}>Settings</h2>
+
+      {licenseInfo.mode === 'paid' && (
+        <div style={{ marginBottom: '30px', backgroundColor: '#d4f57a', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '20px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.06em', marginBottom: '6px' }}>LIFETIME ACCESS</div>
+          <div style={{ fontSize: '15px', fontWeight: 600 }}>✓ Active on this device. Thanks for supporting PosturePal.</div>
+        </div>
+      )}
+
+      {licenseInfo.mode === 'trial' && (
+        <div style={{ marginBottom: '30px', backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '20px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: '6px' }}>UPGRADE</div>
+          <label style={{ marginBottom: '8px', fontSize: '18px', color: 'var(--black)', fontWeight: 'bold' }}>
+            Activate Lifetime Access
+          </label>
+          <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 14px', lineHeight: 1.6 }}>
+            Already paid Rs. 299 on the website? Paste the lifetime license key below to remove the trial timer permanently.
+          </p>
+          <input
+            type="text"
+            value={lifetimeKey}
+            onChange={handleLifetimeKeyChange}
+            placeholder="XXXX-XXXX-XXXX-XXXX"
+            style={{ width: '100%', padding: '14px', fontSize: '18px', textAlign: 'center', letterSpacing: '2px', backgroundColor: 'var(--white)', border: 'var(--border)', color: 'var(--black)', outline: 'none', marginBottom: '12px', boxSizing: 'border-box', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 'bold' }}
+          />
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={handleActivateLifetime}
+              disabled={lifetimeStatus.loading || lifetimeKey.length !== 19}
+              className="neo-btn"
+              style={{ flex: 1, padding: '12px', fontSize: '15px', backgroundColor: 'var(--accent)', color: 'var(--black)', opacity: (lifetimeStatus.loading || lifetimeKey.length !== 19) ? 0.5 : 1 }}
+            >
+              {lifetimeStatus.loading ? 'ACTIVATING...' : 'ACTIVATE LIFETIME ACCESS'}
+            </button>
+            <button
+              onClick={openBuyPage}
+              className="neo-btn"
+              style={{ padding: '12px 16px', fontSize: '13px', backgroundColor: 'var(--white)', color: 'var(--black)' }}
+            >
+              Buy at posturepal.in
+            </button>
+          </div>
+          {lifetimeStatus.message && (
+            <div style={{ marginTop: '12px', fontWeight: 'bold', fontSize: '13px', color: lifetimeStatus.type === 'success' ? '#4caf50' : lifetimeStatus.type === 'error' ? 'red' : 'var(--black)' }}>
+              {lifetimeStatus.message}
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ marginBottom: '30px', backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '20px', display: 'flex', flexDirection: 'column' }}>
         <label style={{ marginBottom: '10px', fontSize: '16px', color: 'var(--black)', fontWeight: 'bold' }}>
@@ -177,8 +282,8 @@ const Settings = () => {
         </label>
         <input 
           type="range" 
-          min="1" 
-          max="15" 
+          min="5"
+          max="60"
           value={settings.alertDelay} 
           onChange={(e) => handleChange('alertDelay', Number(e.target.value))}
           style={{ width: '100%', cursor: 'pointer', accentColor: 'var(--black)' }}

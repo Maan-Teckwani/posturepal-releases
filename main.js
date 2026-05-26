@@ -1,5 +1,6 @@
-const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, session } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, session, shell } = require('electron');
 const path = require('path');
+const crypto = require('crypto');
 const Store = require('electron-store');
 const { createCanvas } = require('canvas');
 const { autoUpdater } = require('electron-updater');
@@ -8,18 +9,76 @@ const store = new Store({
   defaults: {
     settings: {
       threshold: 60,
-      alertDelay: 3,
+      alertDelay: 5,
       cooldown: 30,
       runOnStartup: false
     },
     sessions: [],
     xp: { total: 0, level: 1 },
-    licenseKey: null
+    licenseKey: null,
+    // Free trial state. All time math is owned by the server; these are caches
+    // populated by /api/validate-license when a trial key is accepted, and
+    // refreshed by the trial:revalidate handler on launch.
+    machineId: null,
+    trialToken: null,
+    trialStartedAt: null,
+    trialEndsAt: null,
+    lastValidatedAt: null,
+    trialExpired: false
   }
 });
 
 // Base URL of the deployed PosturePal website (handles license validation).
-const LICENSE_API_URL = 'https://www.posturepal.in';
+// Override via POSTUREPAL_API_URL when developing against a local Next.js server
+// (e.g. POSTUREPAL_API_URL=http://localhost:3000 npm start).
+const LICENSE_API_URL = process.env.POSTUREPAL_API_URL || 'https://www.posturepal.in';
+console.log(`[PosturePal] License API: ${LICENSE_API_URL}`);
+
+// Centralized POST helper: surfaces clear, actionable errors so the UI never
+// has to guess between "network down", "server returned HTML" (route not
+// deployed), and "server returned a JSON error".
+async function apiPost(path, body) {
+  const url = `${LICENSE_API_URL}${path}`;
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    console.error(`[apiPost] network failure ${url}:`, err?.message || err);
+    return {
+      ok: false,
+      error: 'Could not reach the activation server. Check your internet connection and try again.',
+    };
+  }
+
+  const rawText = await res.text();
+  let data;
+  try {
+    data = JSON.parse(rawText);
+  } catch (_) {
+    console.error(`[apiPost] non-JSON response from ${url} (status ${res.status}). First 200 chars:`, rawText.slice(0, 200));
+    return {
+      ok: false,
+      error: `The activation server returned an unexpected response (HTTP ${res.status}). The route may not be deployed yet. Please contact support@posturepal.io if this persists.`,
+    };
+  }
+
+  return { ok: true, status: res.status, data };
+}
+
+// Persistent per-install machine identifier. Bound on first trial activation
+// so the server can enforce one free trial per device.
+function ensureMachineId() {
+  let id = store.get('machineId');
+  if (!id) {
+    id = crypto.randomUUID();
+    store.set('machineId', id);
+  }
+  return id;
+}
 
 function setupAutoUpdater() {
   if (!app.isPackaged) return;
@@ -243,8 +302,17 @@ if (!gotTheLock) {
   });
 }
 
+function hasActiveAccess() {
+  if (store.get('licenseKey')) return true;
+  const endsAt = store.get('trialEndsAt');
+  if (!endsAt) return false;
+  return new Date(endsAt).getTime() > Date.now();
+}
+
 app.whenReady().then(() => {
   if (!gotTheLock) return;
+
+  ensureMachineId();
 
   const settings = store.get('settings');
   app.setLoginItemSettings({
@@ -256,7 +324,7 @@ app.whenReady().then(() => {
     store.set('calibrationVersion', 2);
   }
 
-  if (!store.get('licenseKey')) {
+  if (!hasActiveAccess()) {
     session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
       if (permission === 'media') return callback(false);
       callback(true);
@@ -268,8 +336,8 @@ app.whenReady().then(() => {
   createTray();
   setupAutoUpdater();
 
-  // Monitoring only runs once this device has an activated license
-  if (store.get('licenseKey')) {
+  // Monitoring runs as soon as access is granted (paid license OR active trial).
+  if (hasActiveAccess()) {
     createBackgroundWindow();
   }
 
@@ -280,7 +348,7 @@ app.whenReady().then(() => {
     } else if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
       createAlertWindow();
-      if (store.get('licenseKey')) {
+      if (hasActiveAccess()) {
         createBackgroundWindow();
       }
     }
@@ -438,20 +506,124 @@ ipcMain.handle('xp:add', (_, amount) => {
   return xp;
 });
 
+function clearTrialState() {
+  store.set('trialToken', null);
+  store.set('trialStartedAt', null);
+  store.set('trialEndsAt', null);
+  store.set('lastValidatedAt', null);
+  store.set('trialExpired', false);
+}
+
+function storeTrialState(key, data) {
+  store.set('trialToken', key);
+  if (data.started_at) store.set('trialStartedAt', data.started_at);
+  if (data.expires_at) store.set('trialEndsAt', data.expires_at);
+  store.set('lastValidatedAt', new Date().toISOString());
+  store.set('trialExpired', false);
+}
+
+// Paid lifetime license validation. Queries the `licenses` table only.
 ipcMain.handle('license:validate', async (_, key) => {
-  try {
-    const res = await fetch(`${LICENSE_API_URL}/api/validate-license`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key })
-    });
-    const data = await res.json();
-    if (data.valid) {
-      store.set('licenseKey', key);
-      startMonitoring();
-    }
-    return data;
-  } catch (err) {
-    return { valid: false, message: 'Could not connect. Check your internet connection and try again.' };
+  const result = await apiPost('/api/validate-license', { key });
+  if (!result.ok) {
+    return { valid: false, message: result.error };
   }
+  const data = result.data;
+  if (data.valid) {
+    store.set('licenseKey', key);
+    clearTrialState();
+    startMonitoring();
+    return { ...data, type: 'paid' };
+  }
+  return data;
+});
+
+// Free trial key validation. Queries the `trials` table only.
+ipcMain.handle('trial:validate', async (_, key) => {
+  const result = await apiPost('/api/validate-trial-key', {
+    key,
+    machine_id: ensureMachineId(),
+  });
+  if (!result.ok) {
+    return { valid: false, message: result.error };
+  }
+  const data = result.data;
+  if (data.valid) {
+    storeTrialState(key, data);
+    startMonitoring();
+    return { ...data, type: 'trial' };
+  }
+  return { ...data, type: 'trial' };
+});
+
+const OFFLINE_GRACE_MS = 24 * 60 * 60 * 1000;
+
+// Periodic re-check for trial users. Hits /api/validate-trial-key against the
+// cached trial key to refresh remaining time, surface silent paid conversions,
+// or mark the trial expired. Falls back to cached expiry if the server is
+// unreachable within a 24-hour grace window.
+ipcMain.handle('trial:revalidate', async () => {
+  const key = store.get('trialToken');
+  if (!key) return { valid: false, status: 'invalid' };
+
+  const result = await apiPost('/api/validate-trial-key', {
+    key,
+    machine_id: ensureMachineId(),
+  });
+
+  if (!result.ok) {
+    // Server unreachable / non-JSON. Use cached state if it's recent.
+    const endsAt = store.get('trialEndsAt');
+    const lastValidated = store.get('lastValidatedAt');
+    const now = Date.now();
+    if (endsAt && lastValidated) {
+      const sinceValidation = now - new Date(lastValidated).getTime();
+      if (sinceValidation < OFFLINE_GRACE_MS) {
+        const remaining = new Date(endsAt).getTime() - now;
+        if (remaining > 0) {
+          return { valid: true, type: 'trial', status: 'active', expires_at: endsAt, remaining_ms: remaining, offline: true };
+        }
+        return { valid: false, type: 'trial', status: 'expired', expires_at: endsAt, remaining_ms: 0, offline: true };
+      }
+    }
+    return { valid: false, status: 'offline-too-long', message: result.error };
+  }
+
+  const data = result.data;
+
+  if (data.converted_license_key) {
+    store.set('licenseKey', data.converted_license_key);
+    clearTrialState();
+    return { valid: true, type: 'paid', status: 'converted', converted_license_key: data.converted_license_key };
+  }
+
+  if (data.valid) {
+    storeTrialState(key, data);
+    return { ...data, type: 'trial' };
+  }
+
+  if (data.status === 'expired') {
+    store.set('trialExpired', true);
+    if (data.expires_at) store.set('trialEndsAt', data.expires_at);
+    store.set('lastValidatedAt', new Date().toISOString());
+  }
+  return { ...data, type: 'trial' };
+});
+
+ipcMain.handle('trial:status', () => {
+  const token = store.get('trialToken');
+  const endsAt = store.get('trialEndsAt');
+  const startedAt = store.get('trialStartedAt');
+  if (!token || !endsAt) {
+    return { state: 'none' };
+  }
+  const remaining = new Date(endsAt).getTime() - Date.now();
+  if (remaining <= 0) {
+    return { state: 'expired', startedAt, endsAt, remainingMs: 0 };
+  }
+  return { state: 'active', startedAt, endsAt, remainingMs: remaining };
+});
+
+ipcMain.on('trial:open-buy-page', () => {
+  shell.openExternal(`${LICENSE_API_URL}/#pricing-card`);
 });
