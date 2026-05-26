@@ -52,6 +52,7 @@ win:
     - target: nsis
       arch: [x64]
   icon: assets/build/icon.ico
+  artifactName: PosturePal-Setup.${ext}
 
 nsis:
   oneClick: false
@@ -77,3 +78,4 @@ publish:
   owner: Maan-Teckwani
   repo: posturepal-releases
   private: false
+  releaseType: release
