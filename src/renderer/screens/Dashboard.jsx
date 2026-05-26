@@ -59,6 +59,7 @@ const Dashboard = () => {
   const [cameraName, setCameraName] = useState('');
   
   const [userData, setUserData] = useState({ username: 'You', xp: 0, level: 1 });
+  const [trialInfo, setTrialInfo] = useState(null);
 
   const [calibrationState, setCalibrationState] = useState('idle');
   const [countdown, setCountdown] = useState(3);
@@ -109,6 +110,29 @@ const Dashboard = () => {
     };
     loadData();
   }, []);
+
+  // Trial countdown: read status on mount and refresh every 30 minutes.
+  useEffect(() => {
+    if (!window.api?.trialStatus) return;
+    let cancelled = false;
+    const tick = async () => {
+      const info = await window.api.trialStatus();
+      if (!cancelled) setTrialInfo(info);
+    };
+    tick();
+    const t = setInterval(tick, 30 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, []);
+
+  const trialBadgeText = (() => {
+    if (!trialInfo || trialInfo.state !== 'active') return null;
+    const ms = trialInfo.remainingMs || 0;
+    const days = Math.floor(ms / (24 * 60 * 60 * 1000));
+    const hours = Math.floor(ms / (60 * 60 * 1000));
+    if (days >= 1) return `Free trial — ${days} day${days === 1 ? '' : 's'} remaining`;
+    if (hours >= 1) return `Free trial — last day · ${hours}h left`;
+    return 'Free trial — ending soon';
+  })();
 
   // Update camera name
   useEffect(() => {
@@ -334,18 +358,25 @@ const Dashboard = () => {
       </div>
 
       {/* User info card (top left) */}
-      <div style={{ position: 'absolute', top: '20px', left: '20px', backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '15px', display: 'flex', alignItems: 'center', gap: '15px', zIndex: 5 }}>
-        <div style={{ width: '40px', height: '40px', backgroundColor: 'var(--accent)', border: 'var(--border)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px' }}>
-          🦐
-        </div>
-        <div>
-          <div style={{ color: 'var(--black)', fontWeight: 'bold', fontSize: '16px', fontFamily: "'Space Grotesk', sans-serif" }}>{userData.username}</div>
-          <div style={{ color: 'var(--muted)', fontSize: '12px', marginBottom: '4px', fontWeight: 'bold' }}>LVL {userData.level}</div>
-          <div style={{ width: '100px', height: '10px', backgroundColor: 'var(--cream)', border: 'var(--border)' }}>
-            <div style={{ width: `${(userData.xp / nextThreshold) * 100}%`, height: '100%', backgroundColor: 'var(--black)' }} />
+      <div style={{ position: 'absolute', top: '20px', left: '20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px', zIndex: 5 }}>
+        <div style={{ backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '15px', display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <div style={{ width: '40px', height: '40px', backgroundColor: 'var(--accent)', border: 'var(--border)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px' }}>
+            🦐
           </div>
-          <div style={{ color: 'var(--muted)', fontSize: '10px', marginTop: '4px', fontWeight: 'bold' }}>{userData.xp} / {nextThreshold} XP</div>
+          <div>
+            <div style={{ color: 'var(--black)', fontWeight: 'bold', fontSize: '16px', fontFamily: "'Space Grotesk', sans-serif" }}>{userData.username}</div>
+            <div style={{ color: 'var(--muted)', fontSize: '12px', marginBottom: '4px', fontWeight: 'bold' }}>LVL {userData.level}</div>
+            <div style={{ width: '100px', height: '10px', backgroundColor: 'var(--cream)', border: 'var(--border)' }}>
+              <div style={{ width: `${(userData.xp / nextThreshold) * 100}%`, height: '100%', backgroundColor: 'var(--black)' }} />
+            </div>
+            <div style={{ color: 'var(--muted)', fontSize: '10px', marginTop: '4px', fontWeight: 'bold' }}>{userData.xp} / {nextThreshold} XP</div>
+          </div>
         </div>
+        {trialBadgeText && (
+          <div style={{ backgroundColor: '#d4f57a', border: 'var(--border)', boxShadow: 'var(--shadow-sm)', color: 'var(--black)', padding: '6px 12px', fontSize: '12px', fontWeight: 700, letterSpacing: '0.02em' }}>
+            {trialBadgeText}
+          </div>
+        )}
       </div>
 
       {/* Posture breakdown panel (top right) */}

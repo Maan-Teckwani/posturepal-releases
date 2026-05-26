@@ -125,14 +125,13 @@ function scorePosture(keypoints, videoWidth) {
   const baseline_earTiltDelta = baseline.earTiltDelta || 0;
   const headTiltRawBad = (currentRatios.earTiltDelta - baseline_earTiltDelta) > 0.08;
 
-  // Shoulders: combine a tighter slouch-down check (0.05, was 0.08) with a new
-  // asymmetric-tilt check (one shoulder noticeably higher than the calibrated baseline).
+  // Shoulders: slouch-down fires at 0.15 (was 0.05); tilt fires at 0.12 (was 0.04).
   // Older calibration baselines lack shoulderTiltDelta — fall back to 0.
   const neckDelta = baseline.neckRatio - currentRatios.neckRatio;
-  const shoulderDropBad = neckDelta > 0.05;
+  const shoulderDropBad = neckDelta > 0.125;
   const baseline_shoulderTilt = baseline.shoulderTiltDelta || 0;
   const shoulderTiltDelta = currentRatios.shoulderTiltDelta - baseline_shoulderTilt;
-  const shoulderTiltBad = shoulderTiltDelta > 0.04;
+  const shoulderTiltBad = shoulderTiltDelta > 0.10;
   const shouldersRawBad = shoulderDropBad || shoulderTiltBad;
 
   // Hysteresis: only flip signals once raw bad has persisted across frames.
@@ -147,8 +146,8 @@ function scorePosture(keypoints, videoWidth) {
   const headTiltScore    = Math.min(100, Math.max(0, 100 - (headTiltBad ? 20 : 0)));
   // Score uses the worse of the two shoulder checks so the displayed score
   // reflects whichever issue is bigger.
-  const shoulderDropScore = Math.min(100, Math.max(0, 100 - (neckDelta / 0.05) * 25));
-  const shoulderTiltScore = Math.min(100, Math.max(0, 100 - (shoulderTiltDelta / 0.04) * 25));
+  const shoulderDropScore = Math.min(100, Math.max(0, 100 - (neckDelta / 0.125) * 25));
+  const shoulderTiltScore = Math.min(100, Math.max(0, 100 - (shoulderTiltDelta / 0.10) * 25));
   const shouldersScore   = Math.min(shoulderDropScore, shoulderTiltScore);
   const distanceScore    = Math.min(100, Math.max(0, 100 - (distanceBad ? 30 : 0)));
 

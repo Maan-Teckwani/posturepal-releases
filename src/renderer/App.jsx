@@ -6,36 +6,67 @@ import Settings from './screens/Settings';
 import License from './screens/License';
 import { PoseDetectorProvider } from './contexts/PoseDetectorContext';
 
+// Auth/access modes the app can be in:
+//   loading     — startup probe in flight
+//   licensed    — paid license active; full app
+//   trialActive — free trial active; full app + countdown badge
+//   trialExpired— trial used and ended; show License in trial-expired mode
+//   unlicensed  — no token and no key; show License in default mode
+//   reconnect   — trial cached but offline grace window exhausted
 const App = () => {
   const [activeTab, setActiveTab] = useState('Dashboard');
-  const [isLicensed, setIsLicensed] = useState(null);
-  
-  const [updateState, setUpdateState] = useState(null); // null | 'available' | 'downloading' | 'ready'
+  const [authState, setAuthState] = useState({ mode: 'loading' });
+
+  const [updateState, setUpdateState] = useState(null);
   const [updateInfo, setUpdateInfo] = useState(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
 
-  useEffect(() => {
-    if (window.api && window.api.getLicense) {
-      window.api.getLicense().then(key => {
-        setIsLicensed(!!key);
-      });
-      
-      if (window.api.onUpdateAvailable) {
-        window.api.onUpdateAvailable(info => {
-          setUpdateInfo(info);
-          setUpdateState('available');
-        });
-        window.api.onUpdateProgress(pct => {
-          setDownloadProgress(pct);
-          setUpdateState('downloading');
-        });
-        window.api.onUpdateReady(() => {
-          setUpdateState('ready');
-        });
-      }
-    } else {
-      setIsLicensed(false);
+  const probe = async () => {
+    if (!window.api) { setAuthState({ mode: 'unlicensed' }); return; }
+    const license = await window.api.getLicense();
+    if (license) { setAuthState({ mode: 'licensed' }); return; }
+
+    const status = window.api.trialStatus ? await window.api.trialStatus() : { state: 'none' };
+    if (status.state === 'none') { setAuthState({ mode: 'unlicensed' }); return; }
+
+    // We have cached trial state — confirm with the server.
+    if (window.api.trialRevalidate) {
+      const v = await window.api.trialRevalidate();
+      if (v?.status === 'converted') { setAuthState({ mode: 'licensed' }); return; }
+      if (v?.valid && v?.status === 'active') { setAuthState({ mode: 'trialActive' }); return; }
+      if (v?.status === 'offline-too-long') { setAuthState({ mode: 'reconnect' }); return; }
+      setAuthState({ mode: 'trialExpired' });
+      return;
     }
+    // No revalidate API — fall back to local cache.
+    if (status.state === 'active') setAuthState({ mode: 'trialActive' });
+    else if (status.state === 'expired') setAuthState({ mode: 'trialExpired' });
+    else setAuthState({ mode: 'unlicensed' });
+  };
+
+  // Called by License.jsx after a successful activation. The IPC response tells
+  // us which bucket the new key landed in so we can route to the right screen.
+  const handleActivated = (res) => {
+    if (res?.type === 'paid') {
+      setAuthState({ mode: 'licensed' });
+    } else if (res?.type === 'trial') {
+      setAuthState({ mode: 'trialActive' });
+    } else {
+      // Legacy callers without a response object — re-probe to find out.
+      probe();
+    }
+  };
+
+  useEffect(() => {
+    if (!window.api) { setAuthState({ mode: 'unlicensed' }); return; }
+
+    if (window.api.onUpdateAvailable) {
+      window.api.onUpdateAvailable(info => { setUpdateInfo(info); setUpdateState('available'); });
+      window.api.onUpdateProgress(pct => { setDownloadProgress(pct); setUpdateState('downloading'); });
+      window.api.onUpdateReady(() => setUpdateState('ready'));
+    }
+
+    probe();
   }, []);
 
   const renderScreen = () => {
@@ -50,9 +81,41 @@ const App = () => {
 
   const tabs = ['Dashboard', 'Analytics', 'Leaderboard', 'Settings'];
 
-  if (isLicensed === null) return <div style={{ color: 'var(--black)', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: 'var(--cream)', fontWeight: 'bold' }}>Loading...</div>;
-  if (!isLicensed) return <License onActivated={() => setIsLicensed(true)} />;
+  const fullscreenMessage = (title, body, action = null) => (
+    <div style={{ color: 'var(--black)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: 'var(--cream)', fontFamily: "'Space Grotesk', sans-serif", padding: '24px', textAlign: 'center', gap: '16px' }}>
+      <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: '40px', maxWidth: '560px' }}>{title}</div>
+      <div style={{ color: 'var(--muted)', fontWeight: 600, maxWidth: '480px', lineHeight: 1.6 }}>{body}</div>
+      {action}
+    </div>
+  );
 
+  if (authState.mode === 'loading') {
+    return <div style={{ color: 'var(--black)', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: 'var(--cream)', fontWeight: 'bold' }}>Loading...</div>;
+  }
+
+  if (authState.mode === 'reconnect') {
+    return fullscreenMessage(
+      "Let's reconnect.",
+      "We need to check in with the server to continue your free trial. Connect to the internet and reopen PosturePal.",
+      <button
+        className="neo-btn"
+        onClick={probe}
+        style={{ padding: '12px 24px', backgroundColor: 'var(--accent)', color: 'var(--black)', cursor: 'pointer' }}
+      >
+        Try again
+      </button>
+    );
+  }
+
+  if (authState.mode === 'trialExpired') {
+    return <License mode="trial-expired" onActivated={handleActivated} />;
+  }
+
+  if (authState.mode === 'unlicensed') {
+    return <License onActivated={handleActivated} />;
+  }
+
+  // licensed or trialActive → full app
   return (
     <PoseDetectorProvider>
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--cream)', color: 'var(--black)' }}>
