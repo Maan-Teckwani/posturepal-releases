@@ -27,11 +27,14 @@ mac:
   hardenedRuntime: false
   gatekeeperAssess: false
   identity: null
+  artifactName: PosturePal-${arch}.${ext}
   target:
     - target: dmg
       arch: [x64, arm64]
-    - target: zip
-      arch: [x64, arm64]
+  extendInfo:
+    NSCameraUsageDescription: PosturePal uses your webcam locally to analyze posture. Video never leaves your device.
+    NSMicrophoneUsageDescription: PosturePal does not use the microphone.
+    LSApplicationCategoryType: public.app-category.healthcare-fitness
 
 dmg:
   title: PosturePal

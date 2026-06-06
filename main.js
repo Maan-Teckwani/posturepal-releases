@@ -82,6 +82,9 @@ function ensureMachineId() {
 
 function setupAutoUpdater() {
   if (!app.isPackaged) return;
+  // Auto-update requires a code-signed app on macOS. Until we ship a signed
+  // build, skip the updater on Darwin so Squirrel doesn't surface errors.
+  if (process.platform !== 'win32') return;
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
