@@ -356,20 +356,26 @@ async function switchCamera(cameraId) {
 
 async function startBackground() {
   videoElement = document.getElementById('video');
-  try {
-    let cameraId = null;
-    if (window.api) {
-      const s = await window.api.getData('settings');
-      if (s && s.cameraId) cameraId = s.cameraId;
+  // On macOS the background window can boot before the user has granted camera
+  // access via the Dashboard. Poll until the stream comes through instead of
+  // giving up — once permission is granted, scoring kicks in automatically.
+  let stream = null;
+  while (!stream) {
+    try {
+      let cameraId = null;
+      if (window.api) {
+        const s = await window.api.getData('settings');
+        if (s && s.cameraId) cameraId = s.cameraId;
+      }
+      stream = await acquireVideoStream(cameraId);
+    } catch (err) {
+      console.warn('Background webcam not ready, retrying:', err?.message || err);
+      await new Promise(r => setTimeout(r, 3000));
     }
-    const stream = await acquireVideoStream(cameraId);
-    videoElement.srcObject = stream;
-    await new Promise(resolve => videoElement.onloadedmetadata = resolve);
-    videoElement.play();
-  } catch (err) {
-    console.error('Background webcam error:', err);
-    return;
   }
+  videoElement.srcObject = stream;
+  await new Promise(resolve => videoElement.onloadedmetadata = resolve);
+  videoElement.play();
 
   await tf.ready();
   const model = poseDetection.SupportedModels.MoveNet;

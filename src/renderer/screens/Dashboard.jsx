@@ -48,7 +48,7 @@ function calculateRatios(kps, vWidth) {
 const XP_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 3500, 6000, 10000, 15000];
 
 const Dashboard = () => {
-  const { videoRef, isReady, error } = useWebcam();
+  const { videoRef, isReady, error, permissionState, requestPermission, openSystemSettings } = useWebcam();
   const { detectPose, isLoaded } = usePoseDetector();
 
   const [liveData, setLiveData] = useState({ score: null, signals: null, isCalibrated: false, alertActive: false, cooldownActive: false });
@@ -298,7 +298,39 @@ const Dashboard = () => {
         }
       `}</style>
       
-      {error && (
+      {(permissionState === 'not-determined' || permissionState === 'denied' || permissionState === 'restricted') && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 20, display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(245, 240, 232, 0.96)' }}>
+          <div style={{ backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-lg)', padding: '32px', maxWidth: '420px', textAlign: 'center', color: 'var(--black)' }}>
+            <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: '32px', marginBottom: '12px' }}>
+              {permissionState === 'denied' || permissionState === 'restricted' ? 'Camera access blocked' : 'PosturePal needs your camera'}
+            </div>
+            <div style={{ color: 'var(--muted)', fontSize: '14px', lineHeight: 1.6, marginBottom: '24px' }}>
+              {permissionState === 'denied' || permissionState === 'restricted'
+                ? 'macOS is blocking PosturePal from using your camera. Enable it for PosturePal in System Settings → Privacy & Security → Camera, then reopen the app.'
+                : 'We analyze your posture entirely on your device — video never leaves your Mac. Click below to grant camera access.'}
+            </div>
+            {permissionState === 'not-determined' ? (
+              <button
+                className="neo-btn"
+                onClick={requestPermission}
+                style={{ backgroundColor: 'var(--accent)', color: 'var(--black)', padding: '12px 24px' }}
+              >
+                Enable Camera
+              </button>
+            ) : (
+              <button
+                className="neo-btn"
+                onClick={openSystemSettings}
+                style={{ backgroundColor: 'var(--accent)', color: 'var(--black)', padding: '12px 24px' }}
+              >
+                Open System Settings
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {error && permissionState === 'granted' && (
         <div style={{ position: 'absolute', top: '20px', zIndex: 10, backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '15px', color: 'red', fontWeight: 'bold' }}>
           {error}
         </div>

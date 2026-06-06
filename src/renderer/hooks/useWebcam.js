@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 async function acquireStream(cameraId) {
   // If a specific deviceId is selected, request it via `exact` so the browser
@@ -26,13 +26,46 @@ export const useWebcam = () => {
   const streamRef = useRef(null);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState(null);
+  // 'unknown' | 'not-determined' | 'granted' | 'denied' | 'restricted'
+  // Drives the Dashboard permission UI on macOS.
+  const [permissionState, setPermissionState] = useState('unknown');
   const [version, setVersion] = useState(0);
+
+  const requestPermission = useCallback(async () => {
+    if (!window.api?.requestCameraAccess) return true;
+    const granted = await window.api.requestCameraAccess();
+    setPermissionState(granted ? 'granted' : 'denied');
+    if (granted) setVersion(v => v + 1);
+    return granted;
+  }, []);
+
+  const openSystemSettings = useCallback(() => {
+    if (window.api?.openCameraSystemSettings) window.api.openCameraSystemSettings();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     const start = async () => {
       try {
+        // macOS gate: getUserMedia silently fails on macOS until the OS-level
+        // camera entitlement is granted. Check status first, and if the user
+        // has never been asked, trigger the system dialog now so they have a
+        // chance to allow access from inside our app.
+        if (window.api?.getCameraAccessStatus) {
+          const status = await window.api.getCameraAccessStatus();
+          if (cancelled) return;
+          setPermissionState(status);
+          if (status === 'not-determined') {
+            const granted = await window.api.requestCameraAccess();
+            if (cancelled) return;
+            setPermissionState(granted ? 'granted' : 'denied');
+            if (!granted) return;
+          } else if (status === 'denied' || status === 'restricted') {
+            return;
+          }
+        }
+
         let cameraId = null;
         if (window.api) {
           const s = await window.api.getData('settings');
@@ -51,11 +84,18 @@ export const useWebcam = () => {
           };
         }
       } catch (err) {
-        if (!cancelled) setError("Camera permission denied or device not found: " + err.message);
+        if (cancelled) return;
+        // NotAllowedError == user blocked the OS dialog; reflect that in
+        // permissionState so the UI shows the "Open System Settings" path.
+        if (err && (err.name === 'NotAllowedError' || err.name === 'SecurityError')) {
+          setPermissionState('denied');
+        }
+        setError("Camera permission denied or device not found: " + err.message);
       }
     };
 
     setIsReady(false);
+    setError(null);
     start();
 
     return () => {
@@ -72,5 +112,5 @@ export const useWebcam = () => {
     window.api.onCameraChanged(() => setVersion(v => v + 1));
   }, []);
 
-  return { videoRef, isReady, error };
+  return { videoRef, isReady, error, permissionState, requestPermission, openSystemSettings };
 };

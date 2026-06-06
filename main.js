@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, session, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, session, shell, systemPreferences } = require('electron');
 const path = require('path');
 const crypto = require('crypto');
 const Store = require('electron-store');
@@ -434,6 +434,26 @@ ipcMain.handle('calibration:updated', (event, baseline) => {
 
 ipcMain.handle('detection:toggle', () => {
   toggleDetection();
+});
+
+// macOS camera permission. getUserMedia alone won't prompt the user — Electron
+// must call systemPreferences.askForMediaAccess('camera') the first time, and
+// thereafter the user has to flip the toggle in System Settings. On Windows /
+// Linux the OS handles this implicitly so we report granted.
+ipcMain.handle('camera:getAccessStatus', () => {
+  if (process.platform !== 'darwin') return 'granted';
+  return systemPreferences.getMediaAccessStatus('camera');
+});
+
+ipcMain.handle('camera:requestAccess', async () => {
+  if (process.platform !== 'darwin') return true;
+  return await systemPreferences.askForMediaAccess('camera');
+});
+
+ipcMain.handle('camera:openSystemSettings', () => {
+  if (process.platform === 'darwin') {
+    shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Camera');
+  }
 });
 
 // Broadcast camera changes so the background detector and the alert window

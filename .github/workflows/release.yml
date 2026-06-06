@@ -22,6 +22,10 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          # Baked into the renderer bundle by dotenv-webpack (systemvars: true).
+          # Without these the leaderboard ships disabled.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
   build-mac:
     runs-on: macos-latest
@@ -42,3 +46,5 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
