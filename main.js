@@ -224,6 +224,11 @@ function createBackgroundWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      // Intentionally NOT throttled: this window is always hidden, and
+      // Chromium's intensive timer throttling would clamp the 500 ms detection
+      // setInterval to as little as 1 minute after the window has been hidden
+      // for 5 minutes, which would catastrophically delay posture alerts.
+      // CPU cost is gated by the recording-pause path instead.
       backgroundThrottling: false
     }
   });
@@ -423,6 +428,15 @@ ipcMain.handle('score:update', (event, data) => {
 
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('score:update', data);
+  }
+});
+
+// Background window emits keypoints at the same cadence as scoring; forward to
+// the main window so the Dashboard can draw the skeleton overlay without
+// running a second pose-detection pipeline of its own.
+ipcMain.on('keypoints:update', (event, data) => {
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+    mainWindow.webContents.send('keypoints:update', data);
   }
 });
 

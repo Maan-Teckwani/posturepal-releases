@@ -1,70 +1,33 @@
-import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
-import * as tf from '@tensorflow/tfjs';
-import '@tensorflow/tfjs-backend-webgl';
-import * as poseDetection from '@tensorflow-models/pose-detection';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 /*
- * Loads the MoveNet model exactly once and keeps it alive for the entire
- * lifetime of the app. Previously the model lived inside the Dashboard
- * component, so navigating to Analytics/Leaderboard/Settings unmounted the
- * Dashboard and disposed the detector — forcing a slow "Loading AI model..."
- * reload every time the user came back. The provider sits above the screen
- * router and never unmounts, so the model loads a single time.
+ * Single-pipeline architecture: pose detection runs only in the hidden
+ * background window. This context subscribes to keypoints over IPC so the
+ * Dashboard can render the skeleton overlay without loading TensorFlow.js into
+ * the main window's renderer (which previously cost ~250 MB of duplicate
+ * model + WebGL context). isReady flips true on the first keypoint payload.
  */
-const PoseDetectorContext = createContext({ detectPose: async () => null, isLoaded: false });
+const PoseDetectorContext = createContext({ keypoints: null, videoSize: null, isReady: false });
 
 export const PoseDetectorProvider = ({ children }) => {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const detectorRef = useRef(null);
+  const [keypoints, setKeypoints] = useState(null);
+  const [videoSize, setVideoSize] = useState(null);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
-    const loadModel = async () => {
-      try {
-        await tf.ready();
-        const detector = await poseDetection.createDetector(
-          poseDetection.SupportedModels.MoveNet,
-          {
-            modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-            enableSmoothing: true
-          }
-        );
-        if (isMounted) {
-          detectorRef.current = detector;
-          setIsLoaded(true);
-        }
-      } catch (err) {
-        console.error('Failed to load MoveNet model:', err);
+    if (!window.api || !window.api.onKeypointsUpdate) return;
+    window.api.onKeypointsUpdate((data) => {
+      if (!data) return;
+      setKeypoints(data.keypoints || null);
+      if (data.videoWidth && data.videoHeight) {
+        setVideoSize({ width: data.videoWidth, height: data.videoHeight });
       }
-    };
-
-    loadModel();
-
-    // Intentionally no detector.dispose() here — the model is meant to persist
-    // for the whole session. The provider only unmounts when the app closes.
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const detectPose = useCallback(async (videoElement) => {
-    if (!detectorRef.current || !videoElement) return null;
-    try {
-      const poses = await detectorRef.current.estimatePoses(videoElement, {
-        maxPoses: 1,
-        flipHorizontal: false
-      });
-      if (poses.length > 0) {
-        return poses[0].keypoints;
-      }
-    } catch (err) {
-      console.error('Error during pose detection:', err);
-    }
-    return null;
+      if (!isReady) setIsReady(true);
+    });
   }, []);
 
   return (
-    <PoseDetectorContext.Provider value={{ detectPose, isLoaded }}>
+    <PoseDetectorContext.Provider value={{ keypoints, videoSize, isReady }}>
       {children}
     </PoseDetectorContext.Provider>
   );

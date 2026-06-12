@@ -49,7 +49,10 @@ const XP_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 3500, 6000, 10000, 15000];
 
 const Dashboard = () => {
   const { videoRef, isReady, error, permissionState, requestPermission, openSystemSettings } = useWebcam();
-  const { detectPose, isLoaded } = usePoseDetector();
+  const { keypoints: liveKeypoints, videoSize: detectorVideoSize, isReady: isDetectorReady } = usePoseDetector();
+  // isLoaded mirrors the old prop the rest of the screen reads — now true once
+  // the background detector has pushed at least one keypoint payload.
+  const isLoaded = isDetectorReady;
 
   const [liveData, setLiveData] = useState({ score: null, signals: null, isCalibrated: false, alertActive: false, cooldownActive: false });
   const { score, signals, isCalibrated, alertActive, cooldownActive } = liveData;
@@ -67,9 +70,11 @@ const Dashboard = () => {
   const latestKeypointsRef = useRef(null);
   const signalsRef = useRef(null);
   const isCalibratedRef = useRef(false);
+  const detectorVideoSizeRef = useRef(null);
 
   useEffect(() => { signalsRef.current = signals; }, [signals]);
   useEffect(() => { isCalibratedRef.current = isCalibrated; }, [isCalibrated]);
+  useEffect(() => { detectorVideoSizeRef.current = detectorVideoSize; }, [detectorVideoSize]);
 
   // Receive background scoring and pause state
   useEffect(() => {
@@ -177,39 +182,39 @@ const Dashboard = () => {
       return ok ? '#22c55e' : '#ef4444';
     };
 
+    // Keypoints come from the background window's video, which may be at a
+    // different resolution than the local preview. Scale source coords into
+    // canvas coords so dots line up no matter the size of either video.
+    const src = detectorVideoSizeRef.current;
+    const sx = src && src.width ? canvasRef.current.width / src.width : 1;
+    const sy = src && src.height ? canvasRef.current.height / src.height : 1;
+
     keypoints.forEach(kp => {
       if (pointsToDraw.includes(kp.name) && kp.score > 0.3) {
         ctx.beginPath();
-        ctx.arc(kp.x, kp.y, 5, 0, 2 * Math.PI);
+        ctx.arc(kp.x * sx, kp.y * sy, 5, 0, 2 * Math.PI);
         ctx.fillStyle = colorFor(kp.name);
         ctx.fill();
       }
     });
   }, []);
 
-  // Local detection loop solely for UI dot rendering
+  // Keypoints arrive over IPC from the background window's detector. We just
+  // cache the latest set for calibration and redraw the overlay; no model
+  // runs in this renderer.
   useEffect(() => {
-    let intervalId;
-    if (isLoaded && isReady && !isPaused) {
-      intervalId = setInterval(async () => {
-        if (videoRef.current) {
-          const kps = await detectPose(videoRef.current);
-          if (kps) {
-            latestKeypointsRef.current = kps;
-            drawKeypoints(kps);
-          }
-        }
-      }, 500); 
-    } else {
+    if (isPaused) {
       if (canvasRef.current) {
         const ctx = canvasRef.current.getContext('2d');
         ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
       }
+      return;
     }
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [isLoaded, isReady, isPaused, detectPose, drawKeypoints]);
+    if (liveKeypoints) {
+      latestKeypointsRef.current = liveKeypoints;
+      drawKeypoints(liveKeypoints);
+    }
+  }, [liveKeypoints, isPaused, drawKeypoints]);
 
   const startCalibration = () => {
     setCalibrationState('counting');
@@ -224,7 +229,9 @@ const Dashboard = () => {
         clearInterval(interval);
         if (latestKeypointsRef.current && videoRef.current) {
           const kps = latestKeypointsRef.current;
-          const vWidth = videoRef.current.videoWidth;
+          // Use the detector's video width so calibration ratios are in the
+          // same coordinate space as the live scoring in background.js.
+          const vWidth = detectorVideoSizeRef.current?.width || videoRef.current.videoWidth;
           
           const required = ['nose','left_eye','right_eye','left_ear','right_ear','left_shoulder','right_shoulder'];
           const allVisible = required.every(name => {

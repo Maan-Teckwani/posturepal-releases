@@ -265,13 +265,20 @@ function runDetection() {
     const poses = await detector.estimatePoses(videoElement, { maxPoses: 1, flipHorizontal: false });
     if (poses.length === 0) {
       if (window.api) window.api.sendScore({ score: null, signals: null, isCalibrated: true, alertActive, cooldownActive });
+      if (window.api && window.api.sendKeypoints) {
+        window.api.sendKeypoints({ keypoints: null, videoWidth: videoElement.videoWidth, videoHeight: videoElement.videoHeight });
+      }
       return;
     }
 
-    const { score, signals } = scorePosture(poses[0].keypoints, videoElement.videoWidth);
+    const keypoints = poses[0].keypoints;
+    const { score, signals } = scorePosture(keypoints, videoElement.videoWidth);
     lastRecordedScore = score;
     lastRecordedSignals = signals;
     if (window.api) window.api.sendScore({ score, signals, isCalibrated: true, alertActive, cooldownActive });
+    if (window.api && window.api.sendKeypoints) {
+      window.api.sendKeypoints({ keypoints, videoWidth: videoElement.videoWidth, videoHeight: videoElement.videoHeight });
+    }
 
     if (score === null) return;
 

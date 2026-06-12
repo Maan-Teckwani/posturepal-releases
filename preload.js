@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('api', {
   onAlertData: (callback) => ipcRenderer.on('alert:data', (event, data) => callback(data)),
   sendScore: (data) => ipcRenderer.invoke('score:update', data),
   onScoreUpdate: (callback) => ipcRenderer.on('score:update', (_, data) => callback(data)),
+  sendKeypoints: (data) => ipcRenderer.send('keypoints:update', data),
+  onKeypointsUpdate: (callback) => ipcRenderer.on('keypoints:update', (_, data) => callback(data)),
   onCalibrationUpdated: (callback) => ipcRenderer.on('calibration:updated', (_, data) => callback(data)),
   notifyCalibration: (baseline) => ipcRenderer.invoke('calibration:updated', baseline),
   setLoginItem: (enabled) => ipcRenderer.invoke('app:setLoginItem', enabled),
