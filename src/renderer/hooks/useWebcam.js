@@ -1,5 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
+// MoveNet Lightning consumes a 192x192 input, so 640x480 @ 15fps is plenty for
+// accurate landmarks. Constraining drops the camera's default 1280x720@30fps
+// (~110 MB/s pixel bandwidth) to ~28 MB/s, which materially shrinks the video
+// element's backing-store memory and decoding work in this renderer.
+const VIDEO_CONSTRAINTS = {
+  width: { ideal: 640 },
+  height: { ideal: 480 },
+  frameRate: { ideal: 15, max: 15 }
+};
+
 async function acquireStream(cameraId) {
   // If a specific deviceId is selected, request it via `exact` so the browser
   // doesn't silently fall back to a different camera. If that device is no
@@ -8,17 +18,17 @@ async function acquireStream(cameraId) {
   if (cameraId) {
     try {
       return await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: cameraId } },
+        video: { deviceId: { exact: cameraId }, ...VIDEO_CONSTRAINTS },
         audio: false
       });
     } catch (err) {
       if (err && err.name === 'OverconstrainedError') {
-        return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        return await navigator.mediaDevices.getUserMedia({ video: { ...VIDEO_CONSTRAINTS }, audio: false });
       }
       throw err;
     }
   }
-  return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  return await navigator.mediaDevices.getUserMedia({ video: { ...VIDEO_CONSTRAINTS }, audio: false });
 }
 
 export const useWebcam = () => {

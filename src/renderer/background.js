@@ -328,21 +328,29 @@ function runDetection() {
   }, 500);
 }
 
+// MoveNet Lightning takes a 192x192 input, so this is more than enough
+// resolution while keeping the camera's pixel bandwidth and VRAM textures low.
+const VIDEO_CONSTRAINTS = {
+  width: { ideal: 640 },
+  height: { ideal: 480 },
+  frameRate: { ideal: 15, max: 15 }
+};
+
 async function acquireVideoStream(cameraId) {
   if (cameraId) {
     try {
       return await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: cameraId } },
+        video: { deviceId: { exact: cameraId }, ...VIDEO_CONSTRAINTS },
         audio: false
       });
     } catch (err) {
       if (err && err.name === 'OverconstrainedError') {
-        return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        return await navigator.mediaDevices.getUserMedia({ video: { ...VIDEO_CONSTRAINTS }, audio: false });
       }
       throw err;
     }
   }
-  return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  return await navigator.mediaDevices.getUserMedia({ video: { ...VIDEO_CONSTRAINTS }, audio: false });
 }
 
 async function switchCamera(cameraId) {
