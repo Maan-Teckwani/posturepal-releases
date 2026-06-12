@@ -393,6 +393,13 @@ async function startBackground() {
   videoElement.play();
 
   await tf.ready();
+  // Aggressively reclaim WebGL textures the moment they go out of scope.
+  // Default is 0 on desktop too, but setting it explicitly survives backend
+  // version bumps that have flipped the default in the past.
+  try {
+    tf.env().set('WEBGL_DELETE_TEXTURE_THRESHOLD', 0);
+  } catch (_) { /* env flag may not exist on older backends */ }
+
   const model = poseDetection.SupportedModels.MoveNet;
   const detectorConfig = {
     modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
