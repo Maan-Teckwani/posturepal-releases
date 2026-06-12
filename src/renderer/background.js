@@ -238,13 +238,17 @@ function startSessionRecording() {
 
   if (saveIntervalId) clearInterval(saveIntervalId);
   saveIntervalId = setInterval(() => {
+    if (isPaused) return;
     if (window.api && window.api.saveSession) {
       window.api.saveSession(currentSession);
     }
   }, 60000);
 
   if (leaderboardIntervalId) clearInterval(leaderboardIntervalId);
-  leaderboardIntervalId = setInterval(syncLeaderboard, 120000);
+  leaderboardIntervalId = setInterval(() => {
+    if (isPaused) return;
+    syncLeaderboard();
+  }, 120000);
 }
 
 function runDetection() {
