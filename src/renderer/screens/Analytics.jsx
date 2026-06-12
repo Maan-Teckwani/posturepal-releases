@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 const LEVEL_TITLES = [
   "Shrimp 🦐", "Minnow 🐟", "Salmon 🐠", "Dolphin 🐬", "Shark 🦈",
@@ -381,8 +381,16 @@ const Analytics = () => {
     });
   };
 
+  // Recomputing detailed metrics walks every session's full score history,
+  // which is the heaviest work on this screen. Memoize on (tab, sessions) so
+  // re-renders caused by XP updates or chart redraws don't pay that cost.
+  const detailedMetrics = useMemo(
+    () => computeDetailed(getScopedSessions(tab)),
+    [tab, sessions]
+  );
+
   const renderDetailedMetrics = () => {
-    const d = computeDetailed(getScopedSessions(tab));
+    const d = detailedMetrics;
     const activeH = Math.floor(d.activeMinutes / 60);
     const activeM = d.activeMinutes % 60;
 
