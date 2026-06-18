@@ -396,20 +396,38 @@ async function startBackground() {
   await new Promise(resolve => videoElement.onloadedmetadata = resolve);
   videoElement.play();
 
-  await tf.ready();
-  // Aggressively reclaim WebGL textures the moment they go out of scope.
-  // Default is 0 on desktop too, but setting it explicitly survives backend
-  // version bumps that have flipped the default in the past.
-  try {
-    tf.env().set('WEBGL_DELETE_TEXTURE_THRESHOLD', 0);
-  } catch (_) { /* env flag may not exist on older backends */ }
+  // MoveNet weights are fetched from tfhub.dev on first load. Without retry
+  // an offline boot leaves the app stuck on "Loading AI model…" forever, even
+  // after the user reconnects. Mirror the camera-stream retry pattern above:
+  // wait on the `online` event when offline so reconnect → detection is
+  // sub-second; otherwise back off 3s.
+  let modelReady = false;
+  while (!modelReady) {
+    try {
+      await tf.ready();
+      try {
+        tf.env().set('WEBGL_DELETE_TEXTURE_THRESHOLD', 0);
+      } catch (_) { /* env flag may not exist on older backends */ }
 
-  const model = poseDetection.SupportedModels.MoveNet;
-  const detectorConfig = {
-    modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-    enableSmoothing: true
-  };
-  detector = await poseDetection.createDetector(model, detectorConfig);
+      const model = poseDetection.SupportedModels.MoveNet;
+      const detectorConfig = {
+        modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+        enableSmoothing: true
+      };
+      detector = await poseDetection.createDetector(model, detectorConfig);
+      modelReady = true;
+    } catch (err) {
+      console.warn('Model load failed, retrying:', err?.message || err);
+      if (!navigator.onLine) {
+        await new Promise(resolve => {
+          const handler = () => { window.removeEventListener('online', handler); resolve(); };
+          window.addEventListener('online', handler);
+        });
+      } else {
+        await new Promise(r => setTimeout(r, 3000));
+      }
+    }
+  }
 
   if (window.api) {
     baseline = await window.api.getData('calibration');
