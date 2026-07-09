@@ -10,6 +10,7 @@ files:
   - dist/**/*
   - main.js
   - preload.js
+  - src/shared/**/*
   - src/renderer/index.html
   - src/renderer/alert.html
   - src/renderer/background.html

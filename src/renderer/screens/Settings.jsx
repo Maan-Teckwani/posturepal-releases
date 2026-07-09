@@ -6,7 +6,7 @@ const Settings = () => {
     threshold: 60,
     alertDelay: 3,
     cooldown: 5,
-    runOnStartup: false,
+    runOnStartup: true,
     cameraId: ''
   });
 

@@ -1,10 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-
-const LEVEL_TITLES = [
-  "Shrimp 🦐", "Minnow 🐟", "Salmon 🐠", "Dolphin 🐬", "Shark 🦈",
-  "Whale 🐋", "Posture Ninja 🥷", "Spine God 🧘", "Ergonomic Legend 🏆", "PosturePal Master 👑"
-];
-const XP_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 3500, 6000, 10000, 15000];
+import { levelProgress } from '../../shared/levels';
 
 const GOOD_SCORE = 70; // score at/above which posture counts as "good"
 
@@ -418,9 +413,7 @@ const Analytics = () => {
     );
   };
 
-  const levelIndex = Math.max(0, Math.min(xpData.level - 1, LEVEL_TITLES.length - 1));
-  const currentTitle = LEVEL_TITLES[levelIndex];
-  const nextThreshold = XP_THRESHOLDS[levelIndex + 1] || XP_THRESHOLDS[XP_THRESHOLDS.length - 1];
+  const lp = levelProgress(xpData.total);
 
   return (
     <div style={{ padding: '30px', color: 'var(--black)', maxWidth: '800px', margin: '0 auto', height: '100%', overflowY: 'auto', fontFamily: "'Space Grotesk', sans-serif" }}>
@@ -463,15 +456,15 @@ const Analytics = () => {
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px', backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '20px' }}>
         <div style={{ width: '80px', height: '80px', backgroundColor: 'var(--accent)', border: 'var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', fontWeight: 'bold' }}>
           <span style={{ fontSize: '12px' }}>LVL</span>
-          <span style={{ fontSize: '32px', fontFamily: "'Instrument Serif', serif" }}>{xpData.level}</span>
+          <span style={{ fontSize: '32px', fontFamily: "'Instrument Serif', serif" }}>{lp.level}</span>
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '10px' }}>{currentTitle}</div>
+          <div style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '10px' }}>{lp.title}</div>
           <div style={{ width: '100%', height: '10px', backgroundColor: 'var(--cream)', border: 'var(--border)', overflow: 'hidden' }}>
-            <div style={{ width: `${Math.min(100, (xpData.total / nextThreshold) * 100)}%`, height: '100%', backgroundColor: 'var(--black)' }}></div>
+            <div style={{ width: `${lp.percent}%`, height: '100%', backgroundColor: 'var(--black)' }}></div>
           </div>
           <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '5px', fontWeight: 'bold' }}>
-            {xpData.total} / {nextThreshold} XP to Level {xpData.level + 1}
+            {lp.isMax ? 'Max level' : `${lp.into} / ${lp.span} XP to Level ${lp.level + 1}`}
           </div>
         </div>
       </div>

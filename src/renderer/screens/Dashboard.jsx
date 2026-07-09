@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useWebcam } from '../hooks/useWebcam';
 import { usePoseDetector } from '../contexts/PoseDetectorContext';
+import { levelProgress } from '../../shared/levels';
 
 function getKeypoint(keypoints, name) {
   return keypoints.find(kp => kp.name === name);
@@ -45,7 +46,68 @@ function calculateRatios(kps, vWidth) {
   };
 }
 
-const XP_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 3500, 6000, 10000, 15000];
+// Shared palette for the on-video overlay AND the posture-panel status dots, so
+// the two always read as the same signal. Green = good, red = bad, gray = no
+// judgment yet (pre-calibration / paused).
+const DOT_OK = '#22c55e';
+const DOT_BAD = '#ef4444';
+const DOT_NEUTRAL = '#9ca3af';
+
+// ok === true -> green, false -> red, null/undefined -> neutral gray.
+function dotColor(ok) {
+  if (ok === true) return DOT_OK;
+  if (ok === false) return DOT_BAD;
+  return DOT_NEUTRAL;
+}
+
+// Landmarks drawn on the overlay, and the posture signal(s) that govern each
+// one's color. Returns true/false when calibrated, or null when there is no
+// judgment to render.
+const LANDMARK_POINTS = ['nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear', 'left_shoulder', 'right_shoulder'];
+
+function landmarkOk(name, sig) {
+  if (!sig) return null;
+  if (name === 'nose' || name === 'left_eye' || name === 'right_eye') {
+    return sig.headForward?.ok !== false && sig.headDown?.ok !== false;
+  }
+  if (name === 'left_ear' || name === 'right_ear') {
+    return sig.headTilt?.ok !== false;
+  }
+  if (name === 'left_shoulder' || name === 'right_shoulder') {
+    return sig.shoulders?.ok !== false;
+  }
+  return true;
+}
+
+// Edges that turn the reference dots into a skeleton graph. A segment is red if
+// either endpoint's signal is bad, green if both are good, gray pre-calibration.
+const CONNECTIONS = [
+  ['left_eye', 'right_eye'],
+  ['left_eye', 'nose'],
+  ['right_eye', 'nose'],
+  ['left_eye', 'left_ear'],
+  ['right_eye', 'right_ear'],
+  ['left_ear', 'left_shoulder'],
+  ['right_ear', 'right_shoulder'],
+  ['left_shoulder', 'right_shoulder']
+];
+
+// Premium replacement for the old ✅/❌ posture glyphs — a crisp status dot that
+// matches the on-video reference dots, with an optional leading label.
+const StatusDot = ({ ok, label }) => (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+    {label && <span>{label}</span>}
+    <span style={{
+      width: '14px',
+      height: '14px',
+      borderRadius: '50%',
+      backgroundColor: dotColor(ok),
+      border: '2px solid var(--black)',
+      display: 'inline-block',
+      flexShrink: 0
+    }} />
+  </span>
+);
 
 const Dashboard = () => {
   const { videoRef, isReady, error, permissionState, requestPermission, openSystemSettings } = useWebcam();
@@ -163,24 +225,9 @@ const Dashboard = () => {
     const ctx = canvasRef.current.getContext('2d');
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
-    const pointsToDraw = ['nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear', 'left_shoulder', 'right_shoulder'];
-
     // Each landmark is colored by the signal(s) that govern it. Pre-calibration
-    // we have no judgment to render, so dots stay neutral gray.
-    const sig = signalsRef.current;
-    const calibrated = isCalibratedRef.current;
-    const colorFor = (name) => {
-      if (!calibrated || !sig) return '#9ca3af';
-      let ok = true;
-      if (name === 'nose' || name === 'left_eye' || name === 'right_eye') {
-        ok = sig.headForward?.ok !== false && sig.headDown?.ok !== false;
-      } else if (name === 'left_ear' || name === 'right_ear') {
-        ok = sig.headTilt?.ok !== false;
-      } else if (name === 'left_shoulder' || name === 'right_shoulder') {
-        ok = sig.shoulders?.ok !== false;
-      }
-      return ok ? '#22c55e' : '#ef4444';
-    };
+    // we have no judgment to render, so dots/lines stay neutral gray.
+    const sig = isCalibratedRef.current ? signalsRef.current : null;
 
     // Keypoints come from the background window's video, which may be at a
     // different resolution than the local preview. Scale source coords into
@@ -189,13 +236,36 @@ const Dashboard = () => {
     const sx = src && src.width ? canvasRef.current.width / src.width : 1;
     const sy = src && src.height ? canvasRef.current.height / src.height : 1;
 
-    keypoints.forEach(kp => {
-      if (pointsToDraw.includes(kp.name) && kp.score > 0.3) {
-        ctx.beginPath();
-        ctx.arc(kp.x * sx, kp.y * sy, 5, 0, 2 * Math.PI);
-        ctx.fillStyle = colorFor(kp.name);
-        ctx.fill();
+    const byName = {};
+    keypoints.forEach(kp => { byName[kp.name] = kp; });
+    const visible = (kp) => kp && kp.score > 0.3;
+
+    // Lines first so the dots sit on top of the graph.
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    CONNECTIONS.forEach(([a, b]) => {
+      const ka = byName[a];
+      const kb = byName[b];
+      if (!visible(ka) || !visible(kb)) return;
+      let color = DOT_NEUTRAL;
+      if (sig) {
+        const bad = landmarkOk(a, sig) === false || landmarkOk(b, sig) === false;
+        color = bad ? DOT_BAD : DOT_OK;
       }
+      ctx.beginPath();
+      ctx.moveTo(ka.x * sx, ka.y * sy);
+      ctx.lineTo(kb.x * sx, kb.y * sy);
+      ctx.strokeStyle = color;
+      ctx.stroke();
+    });
+
+    LANDMARK_POINTS.forEach(name => {
+      const kp = byName[name];
+      if (!visible(kp)) return;
+      ctx.beginPath();
+      ctx.arc(kp.x * sx, kp.y * sy, 5, 0, 2 * Math.PI);
+      ctx.fillStyle = dotColor(landmarkOk(name, sig));
+      ctx.fill();
     });
   }, []);
 
@@ -290,8 +360,12 @@ const Dashboard = () => {
     if (settingsBtn) settingsBtn.click();
   };
 
-  const levelIndex = Math.max(0, Math.min(userData.level - 1, XP_THRESHOLDS.length - 1));
-  const nextThreshold = XP_THRESHOLDS[levelIndex + 1] || XP_THRESHOLDS[XP_THRESHOLDS.length - 1];
+  // Derive level, title and bar fill purely from total XP so they can never
+  // disagree, and so the bar stays inside its card at every XP value.
+  const lp = levelProgress(userData.xp);
+  // Status-dot state per posture row: null (no judgment) unless we have a live,
+  // calibrated, unpaused reading.
+  const indicatorOk = (ok) => (!isCalibrated || !signals || isPaused) ? null : ok;
 
   const scoreColor = (score !== null && score >= 60 && !isPaused) ? '#4caf50' : '#f44336';
 
@@ -404,11 +478,11 @@ const Dashboard = () => {
           </div>
           <div>
             <div style={{ color: 'var(--black)', fontWeight: 'bold', fontSize: '16px', fontFamily: "'Space Grotesk', sans-serif" }}>{userData.username}</div>
-            <div style={{ color: 'var(--muted)', fontSize: '12px', marginBottom: '4px', fontWeight: 'bold' }}>LVL {userData.level}</div>
-            <div style={{ width: '100px', height: '10px', backgroundColor: 'var(--cream)', border: 'var(--border)' }}>
-              <div style={{ width: `${(userData.xp / nextThreshold) * 100}%`, height: '100%', backgroundColor: 'var(--black)' }} />
+            <div style={{ color: 'var(--muted)', fontSize: '12px', marginBottom: '4px', fontWeight: 'bold' }}>LVL {lp.level}</div>
+            <div style={{ width: '100px', height: '10px', backgroundColor: 'var(--cream)', border: 'var(--border)', overflow: 'hidden' }}>
+              <div style={{ width: `${lp.percent}%`, height: '100%', backgroundColor: 'var(--black)' }} />
             </div>
-            <div style={{ color: 'var(--muted)', fontSize: '10px', marginTop: '4px', fontWeight: 'bold' }}>{userData.xp} / {nextThreshold} XP</div>
+            <div style={{ color: 'var(--muted)', fontSize: '10px', marginTop: '4px', fontWeight: 'bold' }}>{lp.isMax ? 'Max level' : `${lp.into} / ${lp.span} XP`}</div>
           </div>
         </div>
         {trialBadgeText && (
@@ -420,29 +494,27 @@ const Dashboard = () => {
 
       {/* Posture breakdown panel (top right) */}
       <div style={{ position: 'absolute', top: '20px', right: '20px', backgroundColor: 'var(--white)', border: 'var(--border)', boxShadow: 'var(--shadow-md)', padding: '20px', width: '220px', zIndex: 5, color: 'var(--black)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px', fontWeight: 'bold' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', fontSize: '14px', fontWeight: 'bold' }}>
           <span>Head Forward</span>
-          <span>{(!isCalibrated || !signals || isPaused) ? '—' : (signals.headForward.ok ? '✅' : '❌')}</span>
+          <StatusDot ok={indicatorOk(signals?.headForward?.ok)} />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px', fontWeight: 'bold' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', fontSize: '14px', fontWeight: 'bold' }}>
           <span>Head Down</span>
-          <span>{(!isCalibrated || !signals || isPaused) ? '—' : (signals.headDown.ok ? '✅' : '❌')}</span>
+          <StatusDot ok={indicatorOk(signals?.headDown?.ok)} />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px', fontWeight: 'bold' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', fontSize: '14px', fontWeight: 'bold' }}>
           <span>Head Tilt</span>
-          <span>{(!isCalibrated || !signals || isPaused) ? '—' : (signals.headTilt.ok ? '✅' : '❌')}</span>
+          <StatusDot ok={indicatorOk(signals?.headTilt?.ok)} />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px', fontWeight: 'bold' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', fontSize: '14px', fontWeight: 'bold' }}>
           <span>Shoulders</span>
-          <span>{(!isCalibrated || !signals || isPaused) ? '—' : (signals.shoulders.ok ? '✅' : '❌')}</span>
+          <StatusDot ok={indicatorOk(signals?.shoulders?.ok)} />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', fontSize: '14px', fontWeight: 'bold' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', fontSize: '14px', fontWeight: 'bold' }}>
           <span>Distance</span>
-          <span>
-            {(!isCalibrated || !signals || isPaused) ? '—' : (
-              signals.distance.ok ? 'Good ✅' : (signals.distance.tooClose ? 'Close ❌' : 'Far ❌')
-            )}
-          </span>
+          {(!isCalibrated || !signals || isPaused)
+            ? <StatusDot ok={null} />
+            : <StatusDot ok={signals.distance.ok} label={signals.distance.ok ? 'Good' : (signals.distance.tooClose ? 'Close' : 'Far')} />}
         </div>
         
         <div style={{ borderTop: 'var(--border)', paddingTop: '15px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

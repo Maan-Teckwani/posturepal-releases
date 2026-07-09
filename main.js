@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const Store = require('electron-store');
 const { createCanvas } = require('canvas');
 const { autoUpdater } = require('electron-updater');
+const { calculateLevel } = require('./src/shared/levels');
 
 const store = new Store({
   defaults: {
@@ -11,7 +12,7 @@ const store = new Store({
       threshold: 60,
       alertDelay: 5,
       cooldown: 30,
-      runOnStartup: false
+      runOnStartup: true
     },
     sessions: [],
     xp: { total: 0, level: 1 },
@@ -323,6 +324,15 @@ app.whenReady().then(() => {
   ensureMachineId();
 
   const settings = store.get('settings');
+  // Run-on-startup is now ON by default. Existing installs already have a
+  // persisted settings object (so the store default above won't back-fill the
+  // nested flag), so flip them ON exactly once via a migration marker. Any
+  // later manual toggle in Settings is respected and never re-forced.
+  if (!store.get('startupDefaultV2Applied')) {
+    settings.runOnStartup = true;
+    store.set('settings.runOnStartup', true);
+    store.set('startupDefaultV2Applied', true);
+  }
   app.setLoginItemSettings({
     openAtLogin: settings.runOnStartup || false,
     openAsHidden: true
@@ -504,14 +514,8 @@ ipcMain.handle('session:save', (_, session) => {
 
 ipcMain.handle('session:getAll', () => store.get('sessions', []));
 
-const XP_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 3500, 6000, 10000, 15000];
-
-function calculateLevel(totalXP) {
-  for (let i = XP_THRESHOLDS.length - 1; i >= 0; i--) {
-    if (totalXP >= XP_THRESHOLDS[i]) return i + 1;
-  }
-  return 1;
-}
+// Level math lives in src/shared/levels.js (imported as calculateLevel) so the
+// main process and renderer never disagree about thresholds.
 
 // Total XP actually recorded across every saved session. Sessions are the
 // reliable, persisted source of truth — this is what Detailed Metrics shows.
