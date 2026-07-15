@@ -1,6 +1,6 @@
 {
   "name": "posturepal",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Posture tracking app",
   "author": "Maan Teckwani <maanteckwani@gmail.com>",
   "main": "main.js",

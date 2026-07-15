@@ -1,0 +1,8 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PosturePal">
+  <rect width="512" height="512" rx="143" fill="#16412E"/>
+  <g transform="translate(116,116) scale(11.667)">
+    <circle cx="12" cy="5.5" r="2.5" fill="#B4E169"/>
+    <path d="M12 9.5 C 15 11.5, 15 14.5, 12 16.5 C 10 18, 10 19.5, 12 21"
+          stroke="#B4E169" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+  </g>
+</svg>
