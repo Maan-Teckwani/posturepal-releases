@@ -259,16 +259,16 @@ function runDetection() {
       if (s) settings = { ...settings, ...s };
     }
 
-    if (!baseline) {
-      if (window.api) window.api.sendScore({ score: null, signals: null, isCalibrated: false, alertActive, cooldownActive });
-      return;
-    }
-
     if (!detector || !videoElement) return;
 
+    // Detection must run even before calibration: the Dashboard's "Loading AI
+    // model..." overlay clears on the first keypoint payload, and calibration
+    // itself captures its baseline from these keypoints. Gating estimatePoses
+    // on `baseline` deadlocked fresh installs (no baseline -> no keypoints ->
+    // calibration impossible). Only scoring below requires a baseline.
     const poses = await detector.estimatePoses(videoElement, { maxPoses: 1, flipHorizontal: false });
     if (poses.length === 0) {
-      if (window.api) window.api.sendScore({ score: null, signals: null, isCalibrated: true, alertActive, cooldownActive });
+      if (window.api) window.api.sendScore({ score: null, signals: null, isCalibrated: !!baseline, alertActive, cooldownActive });
       if (window.api && window.api.sendKeypoints) {
         window.api.sendKeypoints({ keypoints: null, videoWidth: videoElement.videoWidth, videoHeight: videoElement.videoHeight });
       }
@@ -276,13 +276,19 @@ function runDetection() {
     }
 
     const keypoints = poses[0].keypoints;
+    if (window.api && window.api.sendKeypoints) {
+      window.api.sendKeypoints({ keypoints, videoWidth: videoElement.videoWidth, videoHeight: videoElement.videoHeight });
+    }
+
+    if (!baseline) {
+      if (window.api) window.api.sendScore({ score: null, signals: null, isCalibrated: false, alertActive, cooldownActive });
+      return;
+    }
+
     const { score, signals } = scorePosture(keypoints, videoElement.videoWidth);
     lastRecordedScore = score;
     lastRecordedSignals = signals;
     if (window.api) window.api.sendScore({ score, signals, isCalibrated: true, alertActive, cooldownActive });
-    if (window.api && window.api.sendKeypoints) {
-      window.api.sendKeypoints({ keypoints, videoWidth: videoElement.videoWidth, videoHeight: videoElement.videoHeight });
-    }
 
     if (score === null) return;
 
