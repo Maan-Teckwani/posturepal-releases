@@ -446,6 +446,21 @@ async function startBackground() {
       baseline = newBaseline;
     });
 
+    // User dismissed the alert via its ✕ button. Clear the active alert state so
+    // the detection loop stops re-showing the popup, and start the normal
+    // cooldown so it doesn't immediately re-fire while posture is still bad.
+    if (window.api.onAlertDismissed) {
+      window.api.onAlertDismissed(() => {
+        alertActive = false;
+        badMs = 0;
+        goodMs = 0;
+        cooldownActive = true;
+        setTimeout(() => {
+          cooldownActive = false;
+        }, (settings.cooldown || 60) * 1000);
+      });
+    }
+
     if (window.api.onCameraChanged) {
       window.api.onCameraChanged((cameraId) => {
         switchCamera(cameraId);

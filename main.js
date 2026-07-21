@@ -430,6 +430,18 @@ ipcMain.handle('alert:hide', () => {
   }
 });
 
+// User clicked ✕ on the alert. Hide it immediately AND tell the background
+// window to clear its alert state, otherwise its detection loop re-shows the
+// popup on the next frame (within 500ms) while posture is still bad.
+ipcMain.handle('alert:dismiss', () => {
+  if (alertWindow) {
+    alertWindow.hide();
+  }
+  if (backgroundWindow && !backgroundWindow.isDestroyed()) {
+    backgroundWindow.webContents.send('alert:dismissed');
+  }
+});
+
 // IPC handlers for background scoring
 ipcMain.handle('score:update', (event, data) => {
   lastScore = data.score;
