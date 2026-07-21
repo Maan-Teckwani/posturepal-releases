@@ -1,10 +1,44 @@
-const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, session, shell, systemPreferences } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, session, shell, systemPreferences, protocol } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 const Store = require('electron-store');
 const { createCanvas } = require('canvas');
 const { autoUpdater } = require('electron-updater');
 const { calculateLevel } = require('./src/shared/levels');
+
+// The MoveNet pose model ships inside the app instead of being fetched from
+// tfhub.dev on first launch, so a fresh install works instantly and offline.
+// The background renderer loads it over this custom scheme (see background.js);
+// registering it as privileged lets TensorFlow.js fetch() the files from a
+// file:// page without disabling webSecurity. Must run before app 'ready'.
+const MODELS_DIR = path.join(__dirname, 'resources', 'models');
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'ppmodel', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }
+]);
+
+function registerModelProtocol() {
+  protocol.handle('ppmodel', async (request) => {
+    try {
+      const { host, pathname } = new URL(request.url);
+      // host is the model folder, pathname the file within it. normalize +
+      // containment check guards against path traversal via ../ segments.
+      const rel = path.normalize(path.join(host, decodeURIComponent(pathname)));
+      const filePath = path.join(MODELS_DIR, rel);
+      if (!filePath.startsWith(MODELS_DIR)) {
+        return new Response('Forbidden', { status: 403 });
+      }
+      const data = await fs.promises.readFile(filePath);
+      const type = filePath.endsWith('.json') ? 'application/json' : 'application/octet-stream';
+      return new Response(data, {
+        headers: { 'content-type': type, 'access-control-allow-origin': '*' }
+      });
+    } catch (err) {
+      console.error('Model protocol error:', err.message);
+      return new Response('Not found', { status: 404 });
+    }
+  });
+}
 
 const store = new Store({
   defaults: {
@@ -321,6 +355,7 @@ function hasActiveAccess() {
 app.whenReady().then(() => {
   if (!gotTheLock) return;
 
+  registerModelProtocol();
   ensureMachineId();
 
   const settings = store.get('settings');

@@ -402,12 +402,15 @@ async function startBackground() {
   await new Promise(resolve => videoElement.onloadedmetadata = resolve);
   videoElement.play();
 
-  // MoveNet weights are fetched from tfhub.dev on first load. Without retry
-  // an offline boot leaves the app stuck on "Loading AI model…" forever, even
-  // after the user reconnects. Mirror the camera-stream retry pattern above:
-  // wait on the `online` event when offline so reconnect → detection is
-  // sub-second; otherwise back off 3s.
+  // The MoveNet model ships inside the app and loads over the custom `ppmodel://`
+  // scheme (see main.js) — instant and fully offline on a fresh install. Only if
+  // that bundle is somehow missing/corrupt do we fall back to fetching the
+  // weights from tfhub.dev, which needs a network. That remote path keeps the
+  // original retry behaviour: wait on the `online` event when offline so
+  // reconnect → detection is sub-second; otherwise back off 3s.
+  const LOCAL_MODEL_URL = 'ppmodel://movenet-singlepose-lightning/model.json';
   let modelReady = false;
+  let useLocalModel = true;
   while (!modelReady) {
     try {
       await tf.ready();
@@ -418,12 +421,18 @@ async function startBackground() {
       const model = poseDetection.SupportedModels.MoveNet;
       const detectorConfig = {
         modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-        enableSmoothing: true
+        enableSmoothing: true,
+        ...(useLocalModel ? { modelUrl: LOCAL_MODEL_URL } : {})
       };
       detector = await poseDetection.createDetector(model, detectorConfig);
       modelReady = true;
     } catch (err) {
-      console.warn('Model load failed, retrying:', err?.message || err);
+      console.warn('Model load failed', useLocalModel ? '(bundled)' : '(remote)', 'retrying:', err?.message || err);
+      if (useLocalModel) {
+        // Bundled model unavailable — switch to the network model and retry now.
+        useLocalModel = false;
+        continue;
+      }
       if (!navigator.onLine) {
         await new Promise(resolve => {
           const handler = () => { window.removeEventListener('online', handler); resolve(); };
